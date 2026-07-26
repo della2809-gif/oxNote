@@ -82,16 +82,21 @@ alter table public.subjects enable row level security;
 alter table public.notes enable row level security;
 alter table public.review_logs enable row level security;
 
+drop policy if exists "profiles: owner read" on public.profiles;
 create policy "profiles: owner read" on public.profiles
   for select using (auth.uid() = id);
+drop policy if exists "profiles: owner update" on public.profiles;
 create policy "profiles: owner update" on public.profiles
   for update using (auth.uid() = id);
 
+drop policy if exists "subjects: owner all" on public.subjects;
 create policy "subjects: owner all" on public.subjects
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+drop policy if exists "notes: owner all" on public.notes;
 create policy "notes: owner all" on public.notes
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+drop policy if exists "review_logs: owner all" on public.review_logs;
 create policy "review_logs: owner all" on public.review_logs
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

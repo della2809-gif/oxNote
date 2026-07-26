@@ -58,38 +58,43 @@ export async function analyzeFromText({
   correctAnswer: string;
   subject: string;
 }): Promise<TextAnalysisResult> {
-  const response = await openai.responses.create({
-    model: GPT_MODEL,
-    input: [
-      { role: "system", content: TUTOR_INSTRUCTIONS },
-      {
-        role: "user",
-        content: [
-          subject ? `과목: ${subject}` : null,
-          `문제: ${question}`,
-          `학생 답: ${myAnswer || "(무응답)"}`,
-          `정답: ${correctAnswer}`,
-        ]
-          .filter(Boolean)
-          .join("\n"),
+  try {
+    const response = await openai.responses.create({
+      model: GPT_MODEL,
+      input: [
+        { role: "system", content: TUTOR_INSTRUCTIONS },
+        {
+          role: "user",
+          content: [
+            subject ? `과목: ${subject}` : null,
+            `문제: ${question}`,
+            `학생 답: ${myAnswer || "(무응답)"}`,
+            `정답: ${correctAnswer}`,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "mistake_analysis",
+          strict: true,
+          schema: TEXT_ANALYSIS_SCHEMA,
+        },
       },
-    ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: "mistake_analysis",
-        strict: true,
-        schema: TEXT_ANALYSIS_SCHEMA,
-      },
-    },
-  });
+    });
 
-  const parsed = JSON.parse(extractOutputText(response));
-  return {
-    analysis: parsed.analysis ?? "",
-    mistakeType: parsed.mistake_type ?? "",
-    tags: parsed.tags ?? [],
-  };
+    const parsed = JSON.parse(extractOutputText(response));
+    return {
+      analysis: parsed.analysis ?? "",
+      mistakeType: parsed.mistake_type ?? "",
+      tags: parsed.tags ?? [],
+    };
+  } catch {
+    // AI 분석이 실패해도 노트 자체는 저장되어야 하므로 빈 결과로 대체한다.
+    return { analysis: "", mistakeType: "", tags: [] };
+  }
 }
 
 export async function analyzeFromFile({
