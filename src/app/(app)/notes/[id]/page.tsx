@@ -25,6 +25,16 @@ export default async function NoteDetailPage({
     subject = data;
   }
 
+  let fileUrl: string | null = null;
+  let isPdf = false;
+  if (typedNote.source_file_url) {
+    isPdf = typedNote.source_file_url.toLowerCase().endsWith(".pdf");
+    const { data } = await supabase.storage
+      .from("note-files")
+      .createSignedUrl(typedNote.source_file_url, 3600);
+    fileUrl = data?.signedUrl ?? null;
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center justify-between">
@@ -49,6 +59,20 @@ export default async function NoteDetailPage({
         <h2 className="text-sm font-medium text-neutral-500">문제</h2>
         <p className="whitespace-pre-wrap text-sm">{typedNote.question}</p>
       </section>
+
+      {fileUrl && (
+        <section className="space-y-2 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
+          <h2 className="text-sm font-medium text-neutral-500">원본 파일</h2>
+          {isPdf ? (
+            <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-600 underline dark:text-indigo-400">
+              업로드한 PDF 열기
+            </a>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={fileUrl} alt="업로드한 문제 원본" className="max-h-96 rounded-md border border-neutral-200 dark:border-neutral-800" />
+          )}
+        </section>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <section className="space-y-2 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">

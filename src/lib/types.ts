@@ -11,6 +11,7 @@ export type Note = {
   user_id: string;
   subject_id: string | null;
   source: string | null;
+  source_file_url: string | null;
   question: string;
   my_answer: string | null;
   correct_answer: string;

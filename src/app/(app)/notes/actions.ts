@@ -3,49 +3,19 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { anthropic, CLAUDE_MODEL } from "@/lib/anthropic";
+import { analyzeFromFile, analyzeFromText } from "@/lib/analyze";
 import { nextBoxLevel, nextReviewDate, isMastered } from "@/lib/spaced-repetition";
 
-async function analyzeMistake(question: string, myAnswer: string, correctAnswer: string, subject: string) {
-  try {
-    const message = await anthropic.messages.create({
-      model: CLAUDE_MODEL,
-      max_tokens: 800,
-      system:
-        "너는 학생의 시험 오답을 분석해주는 튜터야. 주어진 문제, 학생의 답, 정답을 보고 " +
-        "왜 틀렸는지 원인을 분석하고, 다시 틀리지 않기 위한 학습 포인트를 알려줘. " +
-        "반드시 아래 JSON 형식으로만 답해. 다른 텍스트는 절대 포함하지 마.\n" +
-        '{"analysis": "왜 틀렸는지와 핵심 개념 설명 (한국어, 3~5문장)", ' +
-        '"mistake_type": "오류 유형을 짧게 (예: 개념 이해 부족, 계산 실수, 문제 오독, 암기 부족 등)", ' +
-        '"tags": ["관련", "핵심", "개념", "태그"]}',
-      messages: [
-        {
-          role: "user",
-          content: [
-            subject ? `과목: ${subject}` : null,
-            `문제: ${question}`,
-            `학생 답: ${myAnswer || "(무응답)"}`,
-            `정답: ${correctAnswer}`,
-          ]
-            .filter(Boolean)
-            .join("\n"),
-        },
-      ],
-    });
+const ACCEPTED_FILE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "application/pdf"];
+const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
 
-    const textBlock = message.content.find((block) => block.type === "text");
-    const raw = textBlock?.type === "text" ? textBlock.text : "{}";
-    const jsonStart = raw.indexOf("{");
-    const jsonEnd = raw.lastIndexOf("}");
-    const parsed = JSON.parse(raw.slice(jsonStart, jsonEnd + 1));
-    return {
-      analysis: parsed.analysis ?? "",
-      mistakeType: parsed.mistake_type ?? "",
-      tags: (parsed.tags ?? []) as string[],
-    };
-  } catch {
-    return { analysis: "", mistakeType: "", tags: [] as string[] };
-  }
+async function lookupSubjectName(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  subjectId: string | null,
+): Promise<string> {
+  if (!subjectId) return "";
+  const { data } = await supabase.from("subjects").select("name").eq("id", subjectId).single();
+  return data?.name ?? "";
 }
 
 export async function createNote(formData: FormData) {
@@ -65,22 +35,14 @@ export async function createNote(formData: FormData) {
     redirect("/notes/new?error=" + encodeURIComponent("문제와 정답은 필수입니다."));
   }
 
-  let subjectName = "";
-  if (subjectId) {
-    const { data: subject } = await supabase
-      .from("subjects")
-      .select("name")
-      .eq("id", subjectId)
-      .single();
-    subjectName = subject?.name ?? "";
-  }
+  const subjectName = await lookupSubjectName(supabase, subjectId);
 
-  const { analysis, mistakeType, tags } = await analyzeMistake(
+  const { analysis, mistakeType, tags } = await analyzeFromText({
     question,
     myAnswer,
     correctAnswer,
-    subjectName,
-  );
+    subject: subjectName,
+  });
 
   const { data, error } = await supabase
     .from("notes")
@@ -94,6 +56,85 @@ export async function createNote(formData: FormData) {
       ai_analysis: analysis,
       mistake_type: mistakeType,
       tags,
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    redirect("/notes/new?error=" + encodeURIComponent(error?.message ?? "저장에 실패했습니다."));
+  }
+
+  revalidatePath("/notes");
+  revalidatePath("/dashboard");
+  redirect(`/notes/${data.id}`);
+}
+
+export async function createNoteFromFile(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const file = formData.get("file");
+  const source = String(formData.get("source") ?? "").trim();
+  const subjectId = String(formData.get("subjectId") ?? "") || null;
+  const myAnswerHint = String(formData.get("myAnswerHint") ?? "").trim();
+  const correctAnswerHint = String(formData.get("correctAnswerHint") ?? "").trim();
+
+  if (!(file instanceof File) || file.size === 0) {
+    redirect("/notes/new?error=" + encodeURIComponent("업로드할 사진 또는 PDF 파일을 선택해주세요."));
+  }
+
+  const uploadedFile = file as File;
+
+  if (!ACCEPTED_FILE_TYPES.includes(uploadedFile.type)) {
+    redirect("/notes/new?error=" + encodeURIComponent("사진(JPG/PNG/WEBP) 또는 PDF 파일만 업로드할 수 있습니다."));
+  }
+  if (uploadedFile.size > MAX_FILE_SIZE_BYTES) {
+    redirect("/notes/new?error=" + encodeURIComponent("파일 크기는 15MB 이하여야 합니다."));
+  }
+
+  const subjectName = await lookupSubjectName(supabase, subjectId);
+  const arrayBuffer = await uploadedFile.arrayBuffer();
+  const fileBase64 = Buffer.from(arrayBuffer).toString("base64");
+
+  let analyzed;
+  try {
+    analyzed = await analyzeFromFile({
+      fileBase64,
+      mimeType: uploadedFile.type,
+      filename: uploadedFile.name,
+      subject: subjectName,
+      myAnswerHint,
+      correctAnswerHint,
+    });
+  } catch {
+    redirect("/notes/new?error=" + encodeURIComponent("파일 분석에 실패했습니다. 다시 시도해주세요."));
+  }
+
+  if (!analyzed.question || !analyzed.correctAnswer) {
+    redirect("/notes/new?error=" + encodeURIComponent("파일에서 문제와 정답을 읽어내지 못했습니다. 직접 입력을 이용해주세요."));
+  }
+
+  const storagePath = `${user.id}/${crypto.randomUUID()}-${uploadedFile.name}`;
+  const { error: uploadError } = await supabase.storage
+    .from("note-files")
+    .upload(storagePath, arrayBuffer, { contentType: uploadedFile.type });
+
+  const { data, error } = await supabase
+    .from("notes")
+    .insert({
+      user_id: user.id,
+      subject_id: subjectId,
+      source: source || null,
+      question: analyzed.question,
+      my_answer: (myAnswerHint || analyzed.myAnswer) || null,
+      correct_answer: correctAnswerHint || analyzed.correctAnswer,
+      ai_analysis: analyzed.analysis,
+      mistake_type: analyzed.mistakeType,
+      tags: analyzed.tags,
+      source_file_url: uploadError ? null : storagePath,
     })
     .select("id")
     .single();
