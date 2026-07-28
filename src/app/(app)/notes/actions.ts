@@ -17,6 +17,7 @@ const ACCEPTED_FILE_TYPES = ["image/jpeg", "image/png", "image/webp", "applicati
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
 const MAX_QUESTION_LENGTH = 12_000;
 const MAX_ANSWER_LENGTH = 5_000;
+const MAX_MISTAKE_REASON_LENGTH = 2_000;
 
 async function lookupSubjectName(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -296,6 +297,30 @@ export async function deleteNote(formData: FormData) {
   revalidatePath("/notes");
   revalidatePath("/dashboard");
   redirect("/notes");
+}
+
+export async function updateNoteMistakeReason(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const userMistakeReason = String(formData.get("userMistakeReason") ?? "").trim();
+
+  if (!id || userMistakeReason.length > MAX_MISTAKE_REASON_LENGTH) {
+    return;
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  await supabase
+    .from("notes")
+    .update({ user_mistake_reason: userMistakeReason || null })
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  revalidatePath(`/notes/${id}`);
+  revalidatePath("/notes");
 }
 
 export async function submitReview(formData: FormData) {

@@ -23,6 +23,9 @@ const TUTOR_INSTRUCTIONS =
   "너는 모든 시험 분야를 다루는 한국어 AI 오답 튜터야. 문제의 유형과 교육과정, 난이도, " +
   "핵심 개념을 판별하고 학생 눈높이에 맞춰 단계별 풀이를 작성해. 학생 풀이가 첨부되면 실제로 " +
   "잘못된 지점을 근거로 혼동 포인트를 찾고, 없으면 문제에서 흔히 발생하는 예상 혼동 지점을 알려줘. " +
+  "과목과 시험 영역은 발문에 쓰인 언어가 아니라 실제로 평가하는 지식과 본문을 기준으로 판별해. " +
+  "특히 영어 지문의 독해·어휘·어법을 묻는 문제는 발문, 선택지 번호, 학생 필기나 해설이 한국어여도 " +
+  "영어로 분류하고, 한국어로 번역된 외국어 지문이 아니라면 국어로 분류하지 마. " +
   "수식은 읽기 쉬운 일반 텍스트로 쓰고 확인할 수 없는 개인정보는 추측하지 마. mistake_type은 " +
   "'개념 이해 부족', '계산 실수', '문제 오독', '암기 부족' 등으로 짧게 요약하고, " +
   "tags는 문제와 관련된 핵심 개념 키워드 배열로 만들어.";
@@ -52,7 +55,11 @@ const FILE_ANALYSIS_SCHEMA = {
       properties: {
         title: { type: "string", description: "문제를 한 문장으로 요약한 제목" },
         grade_level: { type: "string", description: "예: 중2, 고1, 공무원 9급, 토익" },
-        curriculum: { type: "string", description: "관련 교육과정 또는 시험 영역" },
+        curriculum: {
+          type: "string",
+          description:
+            "화면에 표시할 실제 과목 또는 시험 영역. 본문과 평가 지식을 우선하며, 영어 지문 독해·어휘·어법 문제는 한국어 발문이나 필기가 있어도 반드시 '영어'로 작성",
+        },
         difficulty: { type: "string", description: "하, 중하, 중, 중상, 상 중 하나" },
         question_type: { type: "string", description: "문제 유형을 짧게 요약" },
         core_concepts: {

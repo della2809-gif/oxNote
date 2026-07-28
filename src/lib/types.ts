@@ -20,6 +20,7 @@ export type Note = {
   correct_answer: string;
   ai_analysis: string | null;
   ai_details: NoteAiDetails;
+  user_mistake_reason: string | null;
   mistake_type: string | null;
   tags: string[];
   box_level: number;

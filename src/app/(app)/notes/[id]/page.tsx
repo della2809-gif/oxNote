@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Note, NoteAiDetails, Subject } from "@/lib/types";
-import { deleteNote } from "../actions";
+import { deleteNote, updateNoteMistakeReason } from "../actions";
 
 function asDetails(value: unknown): NoteAiDetails | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -112,11 +112,28 @@ export default async function NoteDetailPage({
           )}
           {typedNote.source && <span>· {typedNote.source}</span>}
         </div>
-        <div className="flex items-center gap-4">
-          <Link href="/notes/new" className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">+ 새 문제 분석</Link>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Link
+            href="/notes/new"
+            className="rounded-xl bg-indigo-50 px-4 py-2.5 text-sm font-bold text-indigo-600 transition hover:bg-indigo-100"
+          >
+            + 새 문제 분석
+          </Link>
+          <button
+            type="submit"
+            form="mistake-reason-form"
+            className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700"
+          >
+            저장
+          </button>
           <form action={deleteNote}>
             <input type="hidden" name="id" value={typedNote.id} />
-            <button type="submit" className="text-sm text-slate-400 hover:text-red-500">삭제</button>
+            <button
+              type="submit"
+              className="rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-bold text-rose-500 transition hover:bg-rose-50"
+            >
+              삭제
+            </button>
           </form>
         </div>
       </div>
@@ -238,6 +255,30 @@ export default async function NoteDetailPage({
           <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-indigo-950">{typedNote.ai_analysis}</p>
         </section>
       ) : null}
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <p className="text-sm font-bold text-indigo-600">나의 오답 기록</p>
+        <h2 className="mt-3 text-2xl font-bold">내가 틀린 이유</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-500">
+          AI가 찾은 예상 혼동 지점을 참고해서, 실제로 내가 왜 틀렸는지 직접 적어보세요.
+        </p>
+        <form
+          id="mistake-reason-form"
+          action={updateNoteMistakeReason}
+          className="mt-5"
+        >
+          <input type="hidden" name="id" value={typedNote.id} />
+          <textarea
+            name="userMistakeReason"
+            defaultValue={typedNote.user_mistake_reason ?? ""}
+            maxLength={2000}
+            rows={5}
+            placeholder="예: 지문의 핵심어인 noise만 보고 세부 내용 문제라고 생각했다. 다음에는 각 문단의 공통 내용을 먼저 정리하겠다."
+            className="w-full resize-y rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-7 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-50"
+          />
+          <p className="mt-2 text-right text-xs text-slate-400">최대 2,000자 · 상단 저장 버튼으로 저장</p>
+        </form>
+      </section>
 
       {(solutionFileUrl || typedNote.my_answer) && (
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
