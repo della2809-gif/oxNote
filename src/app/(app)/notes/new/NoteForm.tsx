@@ -30,6 +30,20 @@ function UploadIcon() {
   );
 }
 
+function CameraIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" aria-hidden="true">
+      <path
+        d="M8.5 6.5 10 4h4l1.5 2.5H18A2.5 2.5 0 0 1 20.5 9v8A2.5 2.5 0 0 1 18 19.5H6A2.5 2.5 0 0 1 3.5 17V9A2.5 2.5 0 0 1 6 6.5h2.5Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="13" r="3.3" stroke="currentColor" strokeWidth="1.7" />
+    </svg>
+  );
+}
+
 function SparkIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" aria-hidden="true">
@@ -65,6 +79,7 @@ export default function NoteForm({
   const [subjectOptions, setSubjectOptions] = useState(subjects);
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const problemInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const solutionInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -152,7 +167,7 @@ export default function NoteForm({
         <div className="flex items-center gap-4">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-indigo-600 text-sm font-bold text-white">1</span>
           <div>
-            <p className="text-sm font-bold text-slate-900">문제 사진 또는 PDF를 올려주세요</p>
+            <p className="text-sm font-bold text-slate-900">문제를 촬영하거나 사진·PDF를 올려주세요</p>
             <p className="mt-1 text-xs text-slate-400">JPG·PNG·WEBP·PDF · 파일당 최대 15MB</p>
           </div>
         </div>
@@ -187,11 +202,24 @@ export default function NoteForm({
               id="problem-file"
               type="file"
               name="file"
-              required
               accept="image/jpeg,image/png,image/webp,application/pdf"
-              onChange={(event) =>
-                replaceSelection(event.target.files?.[0] ?? null, problem, setProblem)
-              }
+              onChange={(event) => {
+                if (cameraInputRef.current) cameraInputRef.current.value = "";
+                replaceSelection(event.target.files?.[0] ?? null, problem, setProblem);
+              }}
+              className="sr-only"
+            />
+            <input
+              ref={cameraInputRef}
+              id="problem-camera"
+              type="file"
+              name="cameraFile"
+              accept="image/*"
+              capture="environment"
+              onChange={(event) => {
+                if (problemInputRef.current) problemInputRef.current.value = "";
+                replaceSelection(event.target.files?.[0] ?? null, problem, setProblem);
+              }}
               className="sr-only"
             />
 
@@ -201,13 +229,22 @@ export default function NoteForm({
                   <span className="truncate rounded-lg bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-600">
                     문제 사진 · {problem.file.name}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => problemInputRef.current?.click()}
-                    className="shrink-0 text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-                  >
-                    다른 문제 선택
-                  </button>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                    >
+                      다시 촬영
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => problemInputRef.current?.click()}
+                      className="text-xs font-semibold text-slate-500 hover:text-indigo-700"
+                    >
+                      다른 파일
+                    </button>
+                  </div>
                 </div>
                 <div className="grid flex-1 place-items-center p-4">
                   {problem.previewUrl ? (
@@ -229,21 +266,38 @@ export default function NoteForm({
                 </div>
               </>
             ) : (
-              <label htmlFor="problem-file" className="grid flex-1 cursor-pointer place-items-center p-8 text-center">
+              <div className="grid flex-1 place-items-center p-8 text-center">
                 <span>
                   <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-indigo-100 text-indigo-600">
                     <UploadIcon />
                   </span>
-                  <strong className="mt-5 block text-lg text-slate-900">수학 문제 사진·PDF 올리기</strong>
+                  <strong className="mt-5 block text-lg text-slate-900">문제를 촬영하거나 파일로 올리기</strong>
                   <span className="mt-2 block text-sm leading-6 text-slate-500">
-                    문제 사진, 시험지 또는 PDF 학습지를 분석할 수 있어요.
+                    카메라로 바로 찍거나 기존 사진·PDF를 선택하세요.
                   </span>
-                  <span className="mx-auto mt-5 inline-flex rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-sm">
-                    + 사진 또는 PDF 선택
+                  <span className="mt-5 grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-indigo-700"
+                    >
+                      <CameraIcon />
+                      카메라로 촬영
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => problemInputRef.current?.click()}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-white px-5 py-3 text-sm font-bold text-indigo-600 hover:bg-indigo-50"
+                    >
+                      <UploadIcon />
+                      사진·PDF 선택
+                    </button>
                   </span>
-                  <span className="mt-3 block text-xs text-slate-400">파일을 이곳에 끌어다 놓아도 됩니다.</span>
+                  <span className="mt-3 block text-xs text-slate-400">
+                    PC에서는 파일을 이곳에 끌어다 놓아도 됩니다.
+                  </span>
                 </span>
-              </label>
+              </div>
             )}
           </div>
 

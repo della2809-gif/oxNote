@@ -174,18 +174,26 @@ export async function createNoteFromFile(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const file = formData.get("file");
+  const selectedFile = formData.get("file");
+  const cameraFile = formData.get("cameraFile");
   const solutionFile = formData.get("solutionFile");
   const source = String(formData.get("source") ?? "").trim();
   const subjectId = String(formData.get("subjectId") ?? "") || null;
   const myAnswerHint = String(formData.get("myAnswerHint") ?? "").trim();
   const correctAnswerHint = String(formData.get("correctAnswerHint") ?? "").trim();
 
-  if (!(file instanceof File) || file.size === 0) {
+  const file =
+    selectedFile instanceof File && selectedFile.size > 0
+      ? selectedFile
+      : cameraFile instanceof File && cameraFile.size > 0
+        ? cameraFile
+        : null;
+
+  if (!file) {
     redirect("/notes/new?error=" + encodeURIComponent("업로드할 사진 또는 PDF 파일을 선택해주세요."));
   }
 
-  const uploadedFile = file as File;
+  const uploadedFile = file;
   const uploadedSolution =
     solutionFile instanceof File && solutionFile.size > 0 ? solutionFile : null;
 
