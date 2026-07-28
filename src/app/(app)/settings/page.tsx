@@ -1,0 +1,194 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { requestAccountDeletion } from "./actions";
+
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; success?: string }>;
+}) {
+  const { error, success } = await searchParams;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const [{ data: profile }, { data: deletionRequest }, { data: guardianLinks }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select(
+        "display_name, email, account_status, date_of_birth, country_code, guardian_required, guardian_consent_status, terms_accepted_at, privacy_accepted_at",
+      )
+      .eq("id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("account_deletion_requests")
+      .select("status, requested_at")
+      .eq("user_id", user.id)
+      .in("status", ["requested", "processing"])
+      .maybeSingle(),
+    supabase
+      .from("guardian_links")
+      .select(
+        "id, child_user_id, guardian_user_id, relationship, status, can_view_learning, can_manage_account, can_manage_billing, accepted_at, created_at",
+      )
+      .or(`child_user_id.eq.${user.id},guardian_user_id.eq.${user.id}`)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-xl font-semibold">계정 설정</h1>
+        <p className="mt-1 text-sm text-neutral-500">계정과 개인정보를 관리합니다.</p>
+      </div>
+
+      {error && <Notice tone="error">{error}</Notice>}
+      {success && <Notice tone="success">{success}</Notice>}
+
+      <section className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
+        <h2 className="font-semibold">내 계정</h2>
+        <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-neutral-500">이름</dt>
+            <dd className="mt-1 font-medium">{profile?.display_name ?? "-"}</dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">이메일</dt>
+            <dd className="mt-1 font-medium">{profile?.email ?? user.email}</dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">계정 상태</dt>
+            <dd className="mt-1 font-medium">{profile?.account_status ?? "active"}</dd>
+          </div>
+        </dl>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <a
+            href="/api/account/export"
+            className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900"
+          >
+            내 데이터 내려받기
+          </a>
+          <Link href="/billing" className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium">
+            요금제 관리
+          </Link>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
+        <h2 className="font-semibold">보호자 계정</h2>
+        <p className="mt-2 text-sm text-neutral-500">
+          미성년 학습자는 보호자가 학습 현황, 계정과 결제를 각각 허용된 범위에서 관리합니다.
+        </p>
+
+        <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-3">
+          <div>
+            <dt className="text-neutral-500">생년월일</dt>
+            <dd className="mt-1 font-medium">{profile?.date_of_birth ?? "-"}</dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">거주 국가</dt>
+            <dd className="mt-1 font-medium">{profile?.country_code ?? "-"}</dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">보호자 동의</dt>
+            <dd className="mt-1 font-medium">
+              {profile?.guardian_required
+                ? profile.guardian_consent_status
+                : "필요 없음"}
+            </dd>
+          </div>
+        </dl>
+
+        <div className="mt-5 space-y-3">
+          {(guardianLinks ?? []).length > 0 ? (
+            guardianLinks?.map((link) => {
+              const isGuardian = link.guardian_user_id === user.id;
+              return (
+                <div
+                  key={link.id}
+                  className="rounded-lg bg-neutral-50 p-3 text-sm dark:bg-neutral-900"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium">
+                      {isGuardian ? "관리 중인 학습자" : "연결된 보호자"}
+                    </span>
+                    <span className="text-neutral-500">{link.status}</span>
+                  </div>
+                  <p className="mt-2 text-xs text-neutral-500">
+                    학습 열람 {link.can_view_learning ? "허용" : "차단"} · 계정 관리{" "}
+                    {link.can_manage_account ? "허용" : "차단"} · 결제 관리{" "}
+                    {link.can_manage_billing ? "허용" : "차단"}
+                  </p>
+                </div>
+              );
+            })
+          ) : (
+            <p className="rounded-lg bg-neutral-50 p-3 text-sm text-neutral-500 dark:bg-neutral-900">
+              연결된 보호자 계정이 없습니다. 보호자 초대와 본인 확인 기능은 결제·메일 제공자 연결 후
+              활성화됩니다.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
+        <h2 className="font-semibold">약관과 개인정보</h2>
+        <p className="mt-2 text-sm text-neutral-500">
+          서비스 이용에 적용되는 문서와 데이터 처리 내용을 확인할 수 있습니다.
+        </p>
+        <div className="mt-4 flex gap-4 text-sm">
+          <Link href="/terms" className="underline">이용약관</Link>
+          <Link href="/privacy" className="underline">개인정보 처리방침</Link>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-red-200 p-5 dark:border-red-900">
+        <h2 className="font-semibold text-red-700 dark:text-red-300">계정 삭제</h2>
+        {deletionRequest ? (
+          <p className="mt-2 text-sm text-neutral-500">
+            {new Date(deletionRequest.requested_at).toLocaleDateString("ko-KR")}에 요청했으며 현재 상태는{" "}
+            <strong>{deletionRequest.status}</strong>입니다.
+          </p>
+        ) : (
+          <form action={requestAccountDeletion} className="mt-4 space-y-3">
+            <p className="text-sm text-neutral-500">
+              요청이 접수되면 관리자가 구독과 데이터를 확인한 뒤 삭제를 처리합니다.
+            </p>
+            <textarea
+              name="reason"
+              rows={2}
+              placeholder="탈퇴 사유 (선택)"
+              className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            />
+            <input
+              name="confirmation"
+              required
+              placeholder="'계정 삭제 요청' 입력"
+              className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            />
+            <button className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500">
+              삭제 요청 접수
+            </button>
+          </form>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function Notice({ tone, children }: { tone: "error" | "success"; children: React.ReactNode }) {
+  return (
+    <p
+      className={`rounded-md px-4 py-3 text-sm ${
+        tone === "error"
+          ? "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300"
+          : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+      }`}
+    >
+      {children}
+    </p>
+  );
+}

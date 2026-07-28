@@ -8,6 +8,8 @@ const NAV_LINKS = [
   { href: "/notes", label: "오답노트" },
   { href: "/review", label: "복습" },
   { href: "/subjects", label: "과목" },
+  { href: "/billing", label: "요금제" },
+  { href: "/settings", label: "설정" },
 ];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -17,12 +19,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+  const isAdmin = user.app_metadata?.role === "admin";
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <header className="border-b border-neutral-200 dark:border-neutral-800">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-6">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-5">
             <Link href="/dashboard" className="text-lg font-bold tracking-tight">
               xonote
             </Link>
@@ -36,6 +39,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                   {link.label}
                 </Link>
               ))}
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+                >
+                  관리자
+                </Link>
+              )}
             </nav>
           </div>
           <form action={signOut} className="flex items-center gap-3">
@@ -49,7 +60,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </form>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
     </div>
   );
 }
