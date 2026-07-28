@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 export type AiUsageKind = "text_analysis" | "file_analysis";
 
@@ -30,8 +30,8 @@ const FREE_ENTITLEMENTS: UserEntitlements = {
 
 export async function getUserEntitlements(userId: string): Promise<UserEntitlements> {
   try {
-    const admin = createAdminClient();
-    const { data: subscription } = await admin
+    const supabase = await createClient();
+    const { data: subscription } = await supabase
       .from("subscriptions")
       .select("status, plans(id, name, monthly_ai_credits, max_file_bytes, monthly_storage_bytes)")
       .eq("user_id", userId)
@@ -60,8 +60,8 @@ export async function getMonthlyUploadedBytes(userId: string): Promise<number> {
     monthStart.setUTCDate(1);
     monthStart.setUTCHours(0, 0, 0, 0);
 
-    const admin = createAdminClient();
-    const { data, error } = await admin
+    const supabase = await createClient();
+    const { data, error } = await supabase
       .from("notes")
       .select("source_file_size_bytes")
       .eq("user_id", userId)
@@ -81,8 +81,8 @@ export async function reserveAiUsage(
   const requestKey = crypto.randomUUID();
 
   try {
-    const admin = createAdminClient();
-    const { data, error } = await admin.rpc("reserve_ai_usage", {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("reserve_ai_usage", {
       target_user_id: userId,
       target_request_key: requestKey,
       target_kind: kind,
@@ -126,8 +126,8 @@ export async function finalizeAiUsage({
   failureReason?: string;
 }) {
   try {
-    const admin = createAdminClient();
-    const { error } = await admin.rpc("finalize_ai_usage", {
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("finalize_ai_usage", {
       target_user_id: userId,
       target_request_key: requestKey,
       target_status: succeeded ? "succeeded" : "failed",
