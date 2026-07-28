@@ -13,6 +13,19 @@ function authErrorMessage(code?: string) {
   if (code === "over_request_rate_limit") {
     return "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.";
   }
+  if (
+    code === "session_not_found"
+    || code === "refresh_token_not_found"
+    || code === "refresh_token_already_used"
+  ) {
+    return "재설정 링크가 만료되었거나 이미 사용되었습니다. 새 메일을 요청해 주세요.";
+  }
+  if (code === "weak_password") {
+    return "보안을 위해 더 강한 비밀번호를 입력해 주세요.";
+  }
+  if (code === "same_password") {
+    return "기존 비밀번호와 다른 새 비밀번호를 입력해 주세요.";
+  }
   return "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.";
 }
 
@@ -106,7 +119,7 @@ export async function requestPasswordReset(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${publicSiteUrl()}/auth/callback?next=/update-password`,
+    redirectTo: `${publicSiteUrl()}/update-password`,
   });
 
   if (error) {
@@ -130,6 +143,16 @@ export async function updatePassword(formData: FormData) {
   }
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect(
+      `/update-password?error=${encodeURIComponent("재설정 인증이 확인되지 않았습니다. 비밀번호 재설정 메일을 다시 요청해 주세요.")}`,
+    );
+  }
+
   const { error } = await supabase.auth.updateUser({ password });
 
   if (error) {
