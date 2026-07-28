@@ -91,8 +91,9 @@ export async function analyzeFromText({
       mistakeType: parsed.mistake_type ?? "",
       tags: parsed.tags ?? [],
     };
-  } catch {
+  } catch (err) {
     // AI 분석이 실패해도 노트 자체는 저장되어야 하므로 빈 결과로 대체한다.
+    console.error("analyzeFromText failed:", err);
     return { analysis: "", mistakeType: "", tags: [] };
   }
 }
