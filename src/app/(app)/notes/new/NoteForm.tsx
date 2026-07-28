@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import type { Subject } from "@/lib/types";
 import { createNote, createNoteFromFile } from "../actions";
+import { createSubjectInline } from "../../subjects/actions";
 
 const fieldClass =
   "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50";
@@ -61,6 +62,8 @@ export default function NoteForm({
   const [mode, setMode] = useState<"file" | "manual">("file");
   const [problem, setProblem] = useState<FileSelection | null>(null);
   const [solution, setSolution] = useState<FileSelection | null>(null);
+  const [subjectOptions, setSubjectOptions] = useState(subjects);
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const problemInputRef = useRef<HTMLInputElement>(null);
   const solutionInputRef = useRef<HTMLInputElement>(null);
 
@@ -102,7 +105,19 @@ export default function NoteForm({
             <h2 className="text-xl font-bold text-slate-900">문제 직접 입력</h2>
             <p className="mt-1 text-sm text-slate-500">파일이 없을 때 문제와 답을 입력해 오답노트를 만들 수 있어요.</p>
           </div>
-          <SubjectSelect subjects={subjects} />
+          <SubjectSelect
+            subjects={subjectOptions}
+            selectedSubjectId={selectedSubjectId}
+            onSelect={setSelectedSubjectId}
+            onCreated={(subject) => {
+              setSubjectOptions((current) =>
+                current.some((item) => item.id === subject.id)
+                  ? current
+                  : [...current, subject].sort((a, b) => a.name.localeCompare(b.name, "ko")),
+              );
+              setSelectedSubjectId(subject.id);
+            }}
+          />
           <label className="block space-y-2 text-sm font-semibold text-slate-700">
             <span>출처 <span className="font-normal text-slate-400">(선택)</span></span>
             <input name="source" className={fieldClass} placeholder="예: 2026년 1학기 중간고사" />
@@ -288,7 +303,19 @@ export default function NoteForm({
             </p>
 
             <div className="mt-7 grid w-full gap-3 text-left sm:grid-cols-2">
-              <SubjectSelect subjects={subjects} />
+              <SubjectSelect
+                subjects={subjectOptions}
+                selectedSubjectId={selectedSubjectId}
+                onSelect={setSelectedSubjectId}
+                onCreated={(subject) => {
+                  setSubjectOptions((current) =>
+                    current.some((item) => item.id === subject.id)
+                      ? current
+                      : [...current, subject].sort((a, b) => a.name.localeCompare(b.name, "ko")),
+                  );
+                  setSelectedSubjectId(subject.id);
+                }}
+              />
               <label className="block space-y-2 text-xs font-bold text-slate-600">
                 <span>시험·교재 출처 <span className="font-normal text-slate-400">(선택)</span></span>
                 <input name="source" className={fieldClass} placeholder="예: 중2 수학 중간고사" />
@@ -323,11 +350,58 @@ export default function NoteForm({
   );
 }
 
-function SubjectSelect({ subjects }: { subjects: Subject[] }) {
+function SubjectSelect({
+  subjects,
+  selectedSubjectId,
+  onSelect,
+  onCreated,
+}: {
+  subjects: Subject[];
+  selectedSubjectId: string;
+  onSelect: (id: string) => void;
+  onCreated: (subject: Subject) => void;
+}) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [newSubjectName, setNewSubjectName] = useState("");
+  const [addError, setAddError] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  function addSubject() {
+    startTransition(async () => {
+      const result = await createSubjectInline(newSubjectName);
+      if (!result.subject) {
+        setAddError(result.error ?? "과목을 추가하지 못했습니다.");
+        return;
+      }
+      onCreated(result.subject);
+      setNewSubjectName("");
+      setAddError("");
+      setIsAdding(false);
+    });
+  }
+
   return (
-    <label className="block space-y-2 text-xs font-bold text-slate-600">
-      <span>과목</span>
-      <select name="subjectId" className={fieldClass}>
+    <div className="space-y-2 text-xs font-bold text-slate-600">
+      <div className="flex items-center justify-between gap-3">
+        <label htmlFor="note-subject">과목</label>
+        <button
+          type="button"
+          onClick={() => {
+            setIsAdding((current) => !current);
+            setAddError("");
+          }}
+          className="font-bold text-indigo-600 hover:text-indigo-700"
+        >
+          {isAdding ? "취소" : "+ 과목 추가"}
+        </button>
+      </div>
+      <select
+        id="note-subject"
+        name="subjectId"
+        value={selectedSubjectId}
+        onChange={(event) => onSelect(event.target.value)}
+        className={fieldClass}
+      >
         <option value="">AI가 자동 분류</option>
         {subjects.map((subject) => (
           <option key={subject.id} value={subject.id}>
@@ -335,6 +409,34 @@ function SubjectSelect({ subjects }: { subjects: Subject[] }) {
           </option>
         ))}
       </select>
-    </label>
+      {isAdding && (
+        <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3">
+          <div className="flex gap-2">
+            <input
+              value={newSubjectName}
+              onChange={(event) => setNewSubjectName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  if (newSubjectName.trim() && !isPending) addSubject();
+                }
+              }}
+              maxLength={40}
+              placeholder="예: 과학, 토익, 공인중개사"
+              className="min-w-0 flex-1 rounded-lg border border-indigo-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-800 outline-none focus:border-indigo-400"
+            />
+            <button
+              type="button"
+              onClick={addSubject}
+              disabled={!newSubjectName.trim() || isPending}
+              className="shrink-0 rounded-lg bg-indigo-600 px-3 py-2.5 text-xs font-bold text-white disabled:bg-slate-300"
+            >
+              {isPending ? "추가 중" : "추가"}
+            </button>
+          </div>
+          {addError && <p className="mt-2 text-xs font-medium text-red-500">{addError}</p>}
+        </div>
+      )}
+    </div>
   );
 }

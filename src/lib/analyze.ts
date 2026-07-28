@@ -54,6 +54,11 @@ const FILE_ANALYSIS_SCHEMA = {
       type: "object",
       properties: {
         title: { type: "string", description: "문제를 한 문장으로 요약한 제목" },
+        subject: {
+          type: "string",
+          description:
+            "사용자 과목 분류에 사용할 간결한 과목명. 예: 국어, 영어, 수학, 과학, 사회, 한국사, 컴퓨터활용능력, NCS",
+        },
         grade_level: { type: "string", description: "예: 중2, 고1, 공무원 9급, 토익" },
         curriculum: {
           type: "string",
@@ -99,6 +104,7 @@ const FILE_ANALYSIS_SCHEMA = {
       },
       required: [
         "title",
+        "subject",
         "grade_level",
         "curriculum",
         "difficulty",
@@ -284,6 +290,7 @@ export async function analyzeFromFile({
     tags: parsed.tags ?? [],
     details: {
       title: details.title ?? "",
+      subject: details.subject ?? "",
       gradeLevel: details.grade_level ?? "",
       curriculum: details.curriculum ?? "",
       difficulty: details.difficulty ?? "",

@@ -52,6 +52,7 @@ export type NoteConfusionPoint = {
 
 export type NoteAiDetails = {
   title: string;
+  subject: string;
   gradeLevel: string;
   curriculum: string;
   difficulty: string;

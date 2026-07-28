@@ -18,6 +18,15 @@ const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
 const MAX_QUESTION_LENGTH = 12_000;
 const MAX_ANSWER_LENGTH = 5_000;
 const MAX_MISTAKE_REASON_LENGTH = 2_000;
+const SUBJECT_COLORS = [
+  "#6366f1",
+  "#ec4899",
+  "#22c55e",
+  "#f59e0b",
+  "#06b6d4",
+  "#a855f7",
+  "#ef4444",
+];
 
 async function lookupSubjectName(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -26,6 +35,65 @@ async function lookupSubjectName(
   if (!subjectId) return "";
   const { data } = await supabase.from("subjects").select("name").eq("id", subjectId).single();
   return data?.name ?? "";
+}
+
+function normalizeAiSubject(rawSubject: string) {
+  const normalized = rawSubject.trim().replace(/\s+/g, " ").slice(0, 40);
+  const commonSubjects = [
+    "국어",
+    "영어",
+    "수학",
+    "과학",
+    "사회",
+    "한국사",
+    "물리",
+    "화학",
+    "생명과학",
+    "지구과학",
+  ];
+  return commonSubjects.find((subject) => normalized.includes(subject)) ?? normalized;
+}
+
+function subjectColor(name: string) {
+  const hash = Array.from(name).reduce((sum, character) => sum + character.charCodeAt(0), 0);
+  return SUBJECT_COLORS[hash % SUBJECT_COLORS.length];
+}
+
+async function resolveSubjectId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  selectedSubjectId: string | null,
+  aiSubject: string,
+) {
+  if (selectedSubjectId) return selectedSubjectId;
+
+  const name = normalizeAiSubject(aiSubject);
+  if (!name) return null;
+
+  const { data: existing } = await supabase
+    .from("subjects")
+    .select("id")
+    .eq("user_id", userId)
+    .ilike("name", name)
+    .limit(1)
+    .maybeSingle();
+  if (existing?.id) return String(existing.id);
+
+  const { data: created } = await supabase
+    .from("subjects")
+    .insert({ user_id: userId, name, color: subjectColor(name) })
+    .select("id")
+    .maybeSingle();
+  if (created?.id) return String(created.id);
+
+  const { data: racedExisting } = await supabase
+    .from("subjects")
+    .select("id")
+    .eq("user_id", userId)
+    .ilike("name", name)
+    .limit(1)
+    .maybeSingle();
+  return racedExisting?.id ? String(racedExisting.id) : null;
 }
 
 export async function createNote(formData: FormData) {
@@ -205,6 +273,13 @@ export async function createNoteFromFile(formData: FormData) {
     redirect("/notes/new?error=" + encodeURIComponent("파일에서 문제와 정답을 읽어내지 못했습니다. 직접 입력을 이용해주세요."));
   }
 
+  const resolvedSubjectId = await resolveSubjectId(
+    supabase,
+    user.id,
+    subjectId,
+    analyzed.details.subject,
+  );
+
   const safeFilename = uploadedFile.name
     .normalize("NFKC")
     .replace(/[^a-zA-Z0-9._가-힣-]/g, "_")
@@ -236,7 +311,7 @@ export async function createNoteFromFile(formData: FormData) {
     .from("notes")
     .insert({
       user_id: user.id,
-      subject_id: subjectId,
+      subject_id: resolvedSubjectId,
       source: source || null,
       question: analyzed.question,
       my_answer: (myAnswerHint || analyzed.myAnswer) || null,

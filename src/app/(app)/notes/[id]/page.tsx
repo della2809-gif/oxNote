@@ -10,6 +10,7 @@ function asDetails(value: unknown): NoteAiDetails | null {
   if (!details.title || !Array.isArray(details.solutionSteps)) return null;
   return {
     title: details.title,
+    subject: details.subject ?? "",
     gradeLevel: details.gradeLevel ?? "",
     curriculum: details.curriculum ?? "",
     difficulty: details.difficulty ?? "",
