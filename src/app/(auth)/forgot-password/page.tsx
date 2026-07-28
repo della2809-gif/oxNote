@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { signIn } from "../actions";
+import { requestPasswordReset } from "../actions";
 
-export default async function LoginPage({
+export default async function ForgotPasswordPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string; message?: string }>;
@@ -9,8 +9,16 @@ export default async function LoginPage({
   const { error, message } = await searchParams;
 
   return (
-    <form action={signIn} className="space-y-4 rounded-xl border border-neutral-200 p-6 dark:border-neutral-800">
-      <h1 className="text-lg font-semibold">로그인</h1>
+    <form
+      action={requestPasswordReset}
+      className="space-y-4 rounded-xl border border-neutral-200 p-6 dark:border-neutral-800"
+    >
+      <div className="space-y-1">
+        <h1 className="text-lg font-semibold">비밀번호 재설정</h1>
+        <p className="text-sm text-neutral-500">
+          가입한 이메일로 비밀번호 변경 링크를 보내드립니다.
+        </p>
+      </div>
 
       {error && (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950 dark:text-red-400">
@@ -35,34 +43,16 @@ export default async function LoginPage({
         />
       </div>
 
-      <div className="space-y-1">
-        <div className="flex items-center justify-between gap-4">
-          <label htmlFor="password" className="text-sm font-medium">비밀번호</label>
-          <Link href="/forgot-password" className="text-xs text-neutral-600 underline dark:text-neutral-300">
-            비밀번호 재설정
-          </Link>
-        </div>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
-        />
-      </div>
-
       <button
         type="submit"
         className="w-full rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900"
       >
-        로그인
+        재설정 메일 보내기
       </button>
 
       <p className="text-center text-sm text-neutral-500">
-        계정이 없으신가요?{" "}
-        <Link href="/signup" className="font-medium text-neutral-900 underline dark:text-white">
-          회원가입
+        <Link href="/login" className="font-medium text-neutral-900 underline dark:text-white">
+          로그인으로 돌아가기
         </Link>
       </p>
     </form>

@@ -35,6 +35,7 @@ cp .env.example .env.local
 | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase 프로젝트 URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon public 키 |
+| `NEXT_PUBLIC_SITE_URL` | 인증 메일이 돌아올 서비스 주소 |
 | `SUPABASE_SERVICE_ROLE_KEY` | 서버 전용 키. AI 사용량 예약·확정에만 사용하며 브라우저 노출 금지 |
 | `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com)에서 발급한 API 키 |
 | `OPENAI_MODEL` | (선택) 사용할 모델, 기본값 `gpt-4o` |
