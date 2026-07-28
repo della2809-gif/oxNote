@@ -106,6 +106,7 @@ export async function createNoteFromFile(formData: FormData) {
   if (!user) redirect("/login");
 
   const file = formData.get("file");
+  const solutionFile = formData.get("solutionFile");
   const source = String(formData.get("source") ?? "").trim();
   const subjectId = String(formData.get("subjectId") ?? "") || null;
   const myAnswerHint = String(formData.get("myAnswerHint") ?? "").trim();
@@ -116,9 +117,17 @@ export async function createNoteFromFile(formData: FormData) {
   }
 
   const uploadedFile = file as File;
+  const uploadedSolution =
+    solutionFile instanceof File && solutionFile.size > 0 ? solutionFile : null;
 
   if (!ACCEPTED_FILE_TYPES.includes(uploadedFile.type)) {
     redirect("/notes/new?error=" + encodeURIComponent("사진(JPG/PNG/WEBP) 또는 PDF 파일만 업로드할 수 있습니다."));
+  }
+  if (uploadedSolution && !ACCEPTED_FILE_TYPES.includes(uploadedSolution.type)) {
+    redirect(
+      "/notes/new?error=" +
+        encodeURIComponent("학생 풀이도 사진(JPG/PNG/WEBP) 또는 PDF 파일만 올릴 수 있습니다."),
+    );
   }
   const entitlements = await getUserEntitlements(user.id);
   const planFileLimit = Math.min(entitlements.maxFileBytes, MAX_FILE_SIZE_BYTES);
@@ -129,8 +138,16 @@ export async function createNoteFromFile(formData: FormData) {
         encodeURIComponent(`${entitlements.planName} 플랜은 파일당 최대 ${limitMb}MB까지 업로드할 수 있습니다.`),
     );
   }
+  if (uploadedSolution && uploadedSolution.size > planFileLimit) {
+    const limitMb = Math.floor(planFileLimit / 1024 / 1024);
+    redirect(
+      "/notes/new?error=" +
+        encodeURIComponent(`학생 풀이 파일은 ${limitMb}MB 이하로 올려주세요.`),
+    );
+  }
   const monthlyUploadedBytes = await getMonthlyUploadedBytes(user.id);
-  if (monthlyUploadedBytes + uploadedFile.size > entitlements.monthlyStorageBytes) {
+  const requestedUploadBytes = uploadedFile.size + (uploadedSolution?.size ?? 0);
+  if (monthlyUploadedBytes + requestedUploadBytes > entitlements.monthlyStorageBytes) {
     redirect(
       "/notes/new?error=" +
         encodeURIComponent(
@@ -146,6 +163,9 @@ export async function createNoteFromFile(formData: FormData) {
   }
   const arrayBuffer = await uploadedFile.arrayBuffer();
   const fileBase64 = Buffer.from(arrayBuffer).toString("base64");
+  const solutionArrayBuffer = uploadedSolution
+    ? await uploadedSolution.arrayBuffer()
+    : null;
 
   let analyzed;
   try {
@@ -156,6 +176,11 @@ export async function createNoteFromFile(formData: FormData) {
       subject: subjectName,
       myAnswerHint,
       correctAnswerHint,
+      studentSolutionBase64: solutionArrayBuffer
+        ? Buffer.from(solutionArrayBuffer).toString("base64")
+        : undefined,
+      studentSolutionMimeType: uploadedSolution?.type,
+      studentSolutionFilename: uploadedSolution?.name,
     });
   } catch {
     await finalizeAiUsage({
@@ -188,6 +213,24 @@ export async function createNoteFromFile(formData: FormData) {
     .from("note-files")
     .upload(storagePath, arrayBuffer, { contentType: uploadedFile.type });
 
+  let studentSolutionPath: string | null = null;
+  let studentSolutionUploadError = false;
+  if (uploadedSolution && solutionArrayBuffer) {
+    const safeSolutionFilename = uploadedSolution.name
+      .normalize("NFKC")
+      .replace(/[^a-zA-Z0-9._가-힣-]/g, "_")
+      .slice(-120);
+    studentSolutionPath =
+      `${user.id}/${crypto.randomUUID()}-${safeSolutionFilename || "student-solution"}`;
+    const { error: solutionUploadError } = await supabase.storage
+      .from("note-files")
+      .upload(studentSolutionPath, solutionArrayBuffer, {
+        contentType: uploadedSolution.type,
+      });
+    studentSolutionUploadError = Boolean(solutionUploadError);
+    if (solutionUploadError) studentSolutionPath = null;
+  }
+
   const { data, error } = await supabase
     .from("notes")
     .insert({
@@ -198,15 +241,26 @@ export async function createNoteFromFile(formData: FormData) {
       my_answer: (myAnswerHint || analyzed.myAnswer) || null,
       correct_answer: correctAnswerHint || analyzed.correctAnswer,
       ai_analysis: analyzed.analysis,
+      ai_details: analyzed.details,
       mistake_type: analyzed.mistakeType,
       tags: analyzed.tags,
       source_file_url: uploadError ? null : storagePath,
       source_file_size_bytes: uploadError ? null : uploadedFile.size,
+      student_solution_file_url: studentSolutionPath,
+      student_solution_file_size_bytes:
+        studentSolutionUploadError ? null : (uploadedSolution?.size ?? null),
     })
     .select("id")
     .single();
 
   if (error || !data) {
+    const uploadedPaths = [
+      uploadError ? null : storagePath,
+      studentSolutionPath,
+    ].filter((path): path is string => Boolean(path));
+    if (uploadedPaths.length > 0) {
+      await supabase.storage.from("note-files").remove(uploadedPaths);
+    }
     redirect("/notes/new?error=" + encodeURIComponent(error?.message ?? "저장에 실패했습니다."));
   }
 
@@ -225,13 +279,17 @@ export async function deleteNote(formData: FormData) {
 
   const { data: note } = await supabase
     .from("notes")
-    .select("source_file_url")
+    .select("source_file_url, student_solution_file_url")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (note?.source_file_url) {
-    await supabase.storage.from("note-files").remove([note.source_file_url]);
+  const filesToRemove = [
+    note?.source_file_url,
+    note?.student_solution_file_url,
+  ].filter((path): path is string => Boolean(path));
+  if (filesToRemove.length > 0) {
+    await supabase.storage.from("note-files").remove(filesToRemove);
   }
 
   await supabase.from("notes").delete().eq("id", id);

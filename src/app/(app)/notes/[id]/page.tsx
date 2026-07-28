@@ -1,7 +1,72 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Note, Subject } from "@/lib/types";
+import type { Note, NoteAiDetails, Subject } from "@/lib/types";
 import { deleteNote } from "../actions";
+
+function asDetails(value: unknown): NoteAiDetails | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const details = value as Partial<NoteAiDetails>;
+  if (!details.title || !Array.isArray(details.solutionSteps)) return null;
+  return {
+    title: details.title,
+    gradeLevel: details.gradeLevel ?? "",
+    curriculum: details.curriculum ?? "",
+    difficulty: details.difficulty ?? "",
+    questionType: details.questionType ?? "",
+    coreConcepts: Array.isArray(details.coreConcepts) ? details.coreConcepts : [],
+    solutionSteps: details.solutionSteps,
+    answerSummary: details.answerSummary ?? "",
+    confusionPoints: Array.isArray(details.confusionPoints) ? details.confusionPoints : [],
+  };
+}
+
+async function signedFileUrl(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  path: string | null,
+) {
+  if (!path) return null;
+  const { data } = await supabase.storage.from("note-files").createSignedUrl(path, 3600);
+  return data?.signedUrl ?? null;
+}
+
+function FilePreview({
+  url,
+  path,
+  alt,
+}: {
+  url: string | null;
+  path: string | null;
+  alt: string;
+}) {
+  if (!url || !path) return null;
+  const isPdf = path.toLowerCase().endsWith(".pdf");
+
+  if (isPdf) {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="grid min-h-72 place-items-center rounded-2xl bg-slate-50 text-center"
+      >
+        <span>
+          <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-indigo-100 text-sm font-bold text-indigo-600">PDF</span>
+          <span className="mt-4 block text-sm font-bold text-indigo-600">업로드한 PDF 열기</span>
+        </span>
+      </a>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt={alt}
+      className="max-h-[520px] w-full rounded-2xl bg-slate-50 object-contain"
+    />
+  );
+}
 
 export default async function NoteDetailPage({
   params,
@@ -15,6 +80,7 @@ export default async function NoteDetailPage({
   if (!note) notFound();
 
   const typedNote = note as Note;
+  const details = asDetails(typedNote.ai_details);
   let subject: Subject | null = null;
   if (typedNote.subject_id) {
     const { data } = await supabase
@@ -25,103 +91,182 @@ export default async function NoteDetailPage({
     subject = data;
   }
 
-  let fileUrl: string | null = null;
-  let isPdf = false;
-  if (typedNote.source_file_url) {
-    isPdf = typedNote.source_file_url.toLowerCase().endsWith(".pdf");
-    const { data } = await supabase.storage
-      .from("note-files")
-      .createSignedUrl(typedNote.source_file_url, 3600);
-    fileUrl = data?.signedUrl ?? null;
-  }
+  const [problemFileUrl, solutionFileUrl] = await Promise.all([
+    signedFileUrl(supabase, typedNote.source_file_url),
+    signedFileUrl(supabase, typedNote.student_solution_file_url),
+  ]);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs text-neutral-500">
+    <div className="mx-auto max-w-6xl space-y-6 text-slate-900">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+          <Link href="/notes" className="font-semibold text-indigo-600 hover:text-indigo-700">← 오답노트</Link>
           {subject && (
-            <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: subject.color }} />
-              {subject.name}
-            </span>
+            <>
+              <span>·</span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: subject.color }} />
+                {subject.name}
+              </span>
+            </>
           )}
           {typedNote.source && <span>· {typedNote.source}</span>}
         </div>
-        <form action={deleteNote}>
-          <input type="hidden" name="id" value={typedNote.id} />
-          <button type="submit" className="text-sm text-neutral-400 hover:text-red-500">
-            삭제
-          </button>
-        </form>
+        <div className="flex items-center gap-4">
+          <Link href="/notes/new" className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">+ 새 문제 분석</Link>
+          <form action={deleteNote}>
+            <input type="hidden" name="id" value={typedNote.id} />
+            <button type="submit" className="text-sm text-slate-400 hover:text-red-500">삭제</button>
+          </form>
+        </div>
       </div>
 
-      <section className="space-y-2 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
-        <h2 className="text-sm font-medium text-neutral-500">문제</h2>
-        <p className="whitespace-pre-wrap text-sm">{typedNote.question}</p>
-      </section>
-
-      {fileUrl && (
-        <section className="space-y-2 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
-          <h2 className="text-sm font-medium text-neutral-500">원본 파일</h2>
-          {isPdf ? (
-            <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-600 underline dark:text-indigo-400">
-              업로드한 PDF 열기
-            </a>
+      <div className="grid gap-5 lg:grid-cols-[1fr_1.05fr]">
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <span className="max-w-[75%] truncate rounded-lg bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-600">
+              문제 원본 {typedNote.source_file_url ? `· ${typedNote.source_file_url.split("/").pop()?.replace(/^[^-]+-/, "")}` : ""}
+            </span>
+          </div>
+          {problemFileUrl ? (
+            <FilePreview url={problemFileUrl} path={typedNote.source_file_url} alt="업로드한 문제 원본" />
           ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={fileUrl} alt="업로드한 문제 원본" className="max-h-96 rounded-md border border-neutral-200 dark:border-neutral-800" />
-          )}
-        </section>
-      )}
-
-      <div className="grid grid-cols-2 gap-4">
-        <section className="space-y-2 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
-          <h2 className="text-sm font-medium text-neutral-500">내가 쓴 답</h2>
-          <p className="whitespace-pre-wrap text-sm text-red-600 dark:text-red-400">
-            {typedNote.my_answer || "(무응답)"}
-          </p>
-        </section>
-        <section className="space-y-2 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
-          <h2 className="text-sm font-medium text-neutral-500">정답</h2>
-          <p className="whitespace-pre-wrap text-sm text-green-600 dark:text-green-400">
-            {typedNote.correct_answer}
-          </p>
-        </section>
-      </div>
-
-      {typedNote.ai_analysis && (
-        <section className="space-y-2 rounded-lg border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-900 dark:bg-indigo-950">
-          <h2 className="flex items-center gap-2 text-sm font-medium text-indigo-700 dark:text-indigo-300">
-            AI 분석 {typedNote.mistake_type && `· ${typedNote.mistake_type}`}
-          </h2>
-          <p className="whitespace-pre-wrap text-sm text-indigo-900 dark:text-indigo-100">
-            {typedNote.ai_analysis}
-          </p>
-          {typedNote.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {typedNote.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300"
-                >
-                  #{tag}
-                </span>
-              ))}
+            <div className="rounded-2xl bg-slate-50 p-6">
+              <p className="whitespace-pre-wrap text-sm leading-7 text-slate-700">{typedNote.question}</p>
             </div>
           )}
         </section>
+
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-600">문제 인식 완료</span>
+          <h1 className="mt-4 text-2xl font-bold leading-snug text-slate-900 sm:text-3xl">
+            {details?.title || typedNote.question}
+          </h1>
+          {details && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {details.gradeLevel && <span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600">{details.gradeLevel}</span>}
+              {details.curriculum && <span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600">{details.curriculum}</span>}
+              {details.difficulty && <span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600">난이도 {details.difficulty}</span>}
+            </div>
+          )}
+
+          <div className="mt-7 rounded-2xl bg-slate-50 p-5">
+            <p className="text-xs font-bold text-slate-500">인식한 문제의 핵심</p>
+            <p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-7 text-slate-800">{typedNote.question}</p>
+          </div>
+
+          {details && (
+            <div className="mt-5 rounded-2xl bg-slate-900 px-5 py-4 text-white">
+              <div className="flex flex-wrap items-center gap-3 text-xs">
+                <span className="text-slate-400">분석 순서</span>
+                <span>{details.questionType || "문제 유형 파악"}</span>
+                <span className="text-indigo-300">→</span>
+                <span>{details.coreConcepts[0] || "핵심 개념 연결"}</span>
+                <span className="text-indigo-300">→</span>
+                <span>단계별 풀이</span>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {details?.solutionSteps.length ? (
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-bold text-indigo-600">단계별 풀이</p>
+              <h2 className="mt-3 text-2xl font-bold">풀이 흐름을 순서대로 따라가 보세요</h2>
+            </div>
+            {details.answerSummary && (
+              <span className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-600">
+                정답 · {details.answerSummary}
+              </span>
+            )}
+          </div>
+
+          <div className="mt-6 divide-y divide-slate-100">
+            {details.solutionSteps.map((step, index) => (
+              <div key={`${step.title}-${index}`} className="grid gap-4 py-5 sm:grid-cols-[44px_1fr]">
+                <span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-sm font-bold text-indigo-600">{index + 1}</span>
+                <div>
+                  <p className="text-xs font-bold text-indigo-500">{step.title}</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-800">{step.explanation}</p>
+                  {step.formula && <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-600">{step.formula}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {details.answerSummary && (
+            <div className="mt-2 flex items-center gap-4 rounded-2xl bg-emerald-50 p-4">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-500 font-bold text-white">✓</span>
+              <div>
+                <p className="text-xs font-bold text-emerald-600">풀이 결론</p>
+                <p className="mt-1 text-sm font-bold text-slate-800">{details.answerSummary}</p>
+              </div>
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {details?.confusionPoints.length ? (
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <p className="text-sm font-bold text-indigo-600">예상 혼동 지점</p>
+          <h2 className="mt-3 text-2xl font-bold">이 부분을 다시 확인해 보세요</h2>
+          {!typedNote.student_solution_file_url && !typedNote.my_answer && (
+            <div className="mt-6 rounded-2xl bg-amber-50 px-5 py-4 text-sm text-amber-800">
+              <strong>아직 학생 풀이가 없어요.</strong>
+              <p className="mt-1 text-xs leading-5">아래 내용은 이 문제에서 자주 헷갈리는 지점입니다. 다음 분석 때 학생 풀이도 함께 올리면 실제 오류 원인을 더 정확히 찾을 수 있어요.</p>
+            </div>
+          )}
+          <div className="mt-5 space-y-4">
+            {details.confusionPoints.map((point, index) => (
+              <div key={`${point.title}-${index}`} className="grid gap-3 sm:grid-cols-[34px_1fr]">
+                <span className="grid h-8 w-8 place-items-center rounded-xl bg-rose-50 text-xs font-bold text-rose-500">{index + 1}</span>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">{point.title}</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">{point.explanation}</p>
+                  {point.correction && <p className="mt-1 text-sm font-semibold text-indigo-600">다음에는: {point.correction}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : typedNote.ai_analysis ? (
+        <section className="rounded-3xl border border-indigo-100 bg-indigo-50 p-6">
+          <h2 className="text-sm font-bold text-indigo-700">AI 오답 분석 {typedNote.mistake_type && `· ${typedNote.mistake_type}`}</h2>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-indigo-950">{typedNote.ai_analysis}</p>
+        </section>
+      ) : null}
+
+      {(solutionFileUrl || typedNote.my_answer) && (
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <p className="text-sm font-bold text-indigo-600">학생 풀이</p>
+          <h2 className="mt-3 text-xl font-bold">내가 풀었던 과정을 함께 확인해요</h2>
+          <div className="mt-5 grid gap-5 lg:grid-cols-2">
+            {solutionFileUrl && (
+              <FilePreview
+                url={solutionFileUrl}
+                path={typedNote.student_solution_file_url}
+                alt="학생 풀이 원본"
+              />
+            )}
+            {typedNote.my_answer && (
+              <div className="rounded-2xl bg-slate-50 p-5">
+                <p className="text-xs font-bold text-slate-500">내가 쓴 답</p>
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">{typedNote.my_answer}</p>
+              </div>
+            )}
+          </div>
+        </section>
       )}
 
-      <section className="flex items-center justify-between rounded-lg border border-neutral-200 p-4 text-sm dark:border-neutral-800">
-        <span className="text-neutral-500">
-          복습 단계: Box {typedNote.box_level} / 5
-        </span>
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-sm shadow-sm">
+        <span className="text-slate-500">복습 단계 · Box {typedNote.box_level} / 5</span>
         {typedNote.mastered ? (
-          <span className="font-medium text-green-600">완전 학습 완료</span>
+          <span className="font-bold text-emerald-600">완전 학습 완료</span>
         ) : (
-          <span className="text-neutral-500">
-            다음 복습: {new Date(typedNote.next_review_at).toLocaleDateString("ko-KR")}
-          </span>
+          <span className="text-slate-500">다음 복습 · {new Date(typedNote.next_review_at).toLocaleDateString("ko-KR")}</span>
         )}
       </section>
     </div>

@@ -13,10 +13,13 @@ export type Note = {
   source: string | null;
   source_file_url: string | null;
   source_file_size_bytes: number | null;
+  student_solution_file_url: string | null;
+  student_solution_file_size_bytes: number | null;
   question: string;
   my_answer: string | null;
   correct_answer: string;
   ai_analysis: string | null;
+  ai_details: NoteAiDetails;
   mistake_type: string | null;
   tags: string[];
   box_level: number;
@@ -32,6 +35,30 @@ export type ReviewLog = {
   user_id: string;
   result: "correct" | "incorrect";
   reviewed_at: string;
+};
+
+export type NoteSolutionStep = {
+  title: string;
+  explanation: string;
+  formula: string;
+};
+
+export type NoteConfusionPoint = {
+  title: string;
+  explanation: string;
+  correction: string;
+};
+
+export type NoteAiDetails = {
+  title: string;
+  gradeLevel: string;
+  curriculum: string;
+  difficulty: string;
+  questionType: string;
+  coreConcepts: string[];
+  solutionSteps: NoteSolutionStep[];
+  answerSummary: string;
+  confusionPoints: NoteConfusionPoint[];
 };
 
 export type Plan = {

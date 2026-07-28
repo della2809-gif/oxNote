@@ -12,11 +12,15 @@ export default async function NewNotePage({
   const { data: subjects } = await supabase.from("subjects").select("*").order("name");
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-7">
       <div>
-        <h1 className="text-xl font-semibold">오답 추가</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          직접 입력하거나, 문제 사진/PDF를 업로드하면 AI가 자동으로 원인을 분석해 드립니다.
+        <p className="text-sm font-bold text-indigo-600">문제 파일 분석</p>
+        <h1 className="mt-3 max-w-4xl text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+          문제를 찍거나 PDF로 올리면{" "}
+          <span className="text-indigo-600">유형부터 풀이까지</span> 보여줘요.
+        </h1>
+        <p className="mt-4 text-sm leading-6 text-slate-500 sm:text-base">
+          사진과 PDF에서 문제 유형과 예상 혼동 지점을 분석하고, 학생 풀이가 있으면 실제 오류 지점까지 찾아냅니다.
         </p>
       </div>
 
