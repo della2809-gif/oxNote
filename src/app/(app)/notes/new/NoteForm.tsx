@@ -91,7 +91,7 @@ export default function NoteForm({ subjects, error }: { subjects: Subject[]; err
               type="file"
               name="file"
               required
-              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
               onChange={(e) => {
                 const f = e.target.files?.[0] ?? null;
                 setFileName(f?.name ?? null);
@@ -103,7 +103,8 @@ export default function NoteForm({ subjects, error }: { subjects: Subject[]; err
               className={inputClass}
             />
             <p className="text-xs text-neutral-400">
-              문제, 내가 쓴 답, 정답이 보이는 사진/PDF를 올리면 AI가 자동으로 읽어서 분석합니다. (최대 15MB)
+              문제, 내가 쓴 답, 정답이 보이는 사진/PDF를 올리면 AI가 자동으로 읽어서 분석합니다.
+              (Free 5MB, Pro 15MB)
             </p>
             {fileName && <p className="text-xs text-neutral-500">선택된 파일: {fileName}</p>}
             {previewUrl && (

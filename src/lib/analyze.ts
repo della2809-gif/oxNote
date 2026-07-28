@@ -1,9 +1,14 @@
-import { openai, GPT_MODEL } from "./openai";
+import { getOpenAI, GPT_MODEL } from "./openai";
 
 export type TextAnalysisResult = {
   analysis: string;
   mistakeType: string;
   tags: string[];
+  succeeded: boolean;
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+  };
 };
 
 export type FileAnalysisResult = TextAnalysisResult & {
@@ -59,7 +64,7 @@ export async function analyzeFromText({
   subject: string;
 }): Promise<TextAnalysisResult> {
   try {
-    const response = await openai.responses.create({
+    const response = await getOpenAI().responses.create({
       model: GPT_MODEL,
       input: [
         { role: "system", content: TUTOR_INSTRUCTIONS },
@@ -90,11 +95,22 @@ export async function analyzeFromText({
       analysis: parsed.analysis ?? "",
       mistakeType: parsed.mistake_type ?? "",
       tags: parsed.tags ?? [],
+      succeeded: true,
+      usage: {
+        inputTokens: response.usage?.input_tokens ?? 0,
+        outputTokens: response.usage?.output_tokens ?? 0,
+      },
     };
   } catch (err) {
     // AI 분석이 실패해도 노트 자체는 저장되어야 하므로 빈 결과로 대체한다.
     console.error("analyzeFromText failed:", err);
-    return { analysis: "", mistakeType: "", tags: [] };
+    return {
+      analysis: "",
+      mistakeType: "",
+      tags: [],
+      succeeded: false,
+      usage: { inputTokens: 0, outputTokens: 0 },
+    };
   }
 }
 
@@ -135,7 +151,7 @@ export async function analyzeFromFile({
     .filter(Boolean)
     .join("\n");
 
-  const response = await openai.responses.create({
+  const response = await getOpenAI().responses.create({
     model: GPT_MODEL,
     input: [
       { role: "system", content: TUTOR_INSTRUCTIONS },
@@ -162,5 +178,10 @@ export async function analyzeFromFile({
     analysis: parsed.analysis ?? "",
     mistakeType: parsed.mistake_type ?? "",
     tags: parsed.tags ?? [],
+    succeeded: true,
+    usage: {
+      inputTokens: response.usage?.input_tokens ?? 0,
+      outputTokens: response.usage?.output_tokens ?? 0,
+    },
   };
 }

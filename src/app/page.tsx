@@ -3,7 +3,7 @@ import Link from "next/link";
 const FEATURES = [
   {
     title: "AI 오답 분석",
-    desc: "문제, 내가 쓴 답, 정답을 입력하면 Claude가 왜 틀렸는지와 학습 포인트를 분석해줍니다.",
+    desc: "문제, 내가 쓴 답, 정답을 입력하거나 파일을 올리면 GPT가 오답 원인과 학습 포인트를 분석합니다.",
   },
   {
     title: "과목별 정리",
@@ -53,6 +53,10 @@ export default function Home() {
               <p className="mt-1 text-sm text-neutral-500">{f.desc}</p>
             </div>
           ))}
+        </div>
+        <div className="mt-10 flex justify-center gap-4 text-xs text-neutral-500">
+          <Link href="/terms" className="underline">이용약관</Link>
+          <Link href="/privacy" className="underline">개인정보 처리방침</Link>
         </div>
       </div>
     </div>

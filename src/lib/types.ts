@@ -12,6 +12,7 @@ export type Note = {
   subject_id: string | null;
   source: string | null;
   source_file_url: string | null;
+  source_file_size_bytes: number | null;
   question: string;
   my_answer: string | null;
   correct_answer: string;
@@ -31,4 +32,40 @@ export type ReviewLog = {
   user_id: string;
   result: "correct" | "incorrect";
   reviewed_at: string;
+};
+
+export type Plan = {
+  id: string;
+  name: string;
+  description: string;
+  monthly_price_krw: number;
+  monthly_ai_credits: number;
+  max_file_bytes: number;
+  monthly_storage_bytes: number;
+  is_active: boolean;
+};
+
+export type Subscription = {
+  id: string;
+  user_id: string;
+  payer_user_id: string;
+  guardian_link_id: string | null;
+  plan_id: string;
+  status: "trialing" | "active" | "past_due" | "canceled" | "paused";
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+};
+
+export type GuardianLink = {
+  id: string;
+  child_user_id: string;
+  guardian_user_id: string;
+  relationship: "parent" | "legal_guardian" | "other";
+  status: "pending" | "active" | "rejected" | "revoked";
+  can_view_learning: boolean;
+  can_manage_account: boolean;
+  can_manage_billing: boolean;
+  accepted_at: string | null;
+  created_at: string;
 };
