@@ -84,6 +84,7 @@ export async function signUp(formData: FormData) {
     email,
     password,
     options: {
+      emailRedirectTo: `${publicSiteUrl()}/auth/callback?next=/dashboard`,
       data: {
         display_name: displayName,
         date_of_birth: dateOfBirth,
@@ -119,7 +120,7 @@ export async function requestPasswordReset(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${publicSiteUrl()}/update-password`,
+    redirectTo: `${publicSiteUrl()}/auth/callback?next=/update-password`,
   });
 
   if (error) {
