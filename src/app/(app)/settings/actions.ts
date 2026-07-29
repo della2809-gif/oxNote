@@ -140,6 +140,76 @@ export async function createFamilyInvitation(formData: FormData) {
   redirect(`/settings?${params.toString()}`);
 }
 
+export async function sendFamilyInvitationEmail(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const inviteUrl = String(formData.get("inviteUrl") ?? "").trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    redirect("/settings?error=" + encodeURIComponent("초대할 이메일을 확인해 주세요."));
+  }
+
+  let parsedInviteUrl: URL;
+  try {
+    parsedInviteUrl = new URL(inviteUrl);
+  } catch {
+    redirect("/settings?error=" + encodeURIComponent("올바른 초대 링크가 아닙니다."));
+  }
+
+  const expectedOrigin = new URL(siteUrl()).origin;
+  const tokenMatch = parsedInviteUrl.pathname.match(/^\/guardian\/invite\/([A-Za-z0-9_-]+)$/);
+  if (parsedInviteUrl.origin !== expectedOrigin || !tokenMatch) {
+    redirect("/settings?error=" + encodeURIComponent("올바른 초대 링크가 아닙니다."));
+  }
+
+  const token = tokenMatch[1];
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  const admin = createAdminClient();
+  const { data: invitation } = await admin
+    .from("family_invitations")
+    .select("id, invitee_email")
+    .eq("token_hash", tokenHash)
+    .eq("inviter_user_id", user.id)
+    .eq("status", "pending")
+    .gt("expires_at", new Date().toISOString())
+    .maybeSingle();
+
+  if (!invitation || invitation.invitee_email !== email) {
+    redirect("/settings?error=" + encodeURIComponent("초대 정보가 만료되었거나 일치하지 않습니다."));
+  }
+
+  const invitePath = `/guardian/invite/${token}`;
+  const { error } = await admin.auth.signInWithOtp({
+    email,
+    options: {
+      shouldCreateUser: true,
+      emailRedirectTo: `${siteUrl()}/auth/callback?next=${encodeURIComponent(invitePath)}`,
+    },
+  });
+
+  const params = new URLSearchParams({
+    invite: inviteUrl,
+    channel: "email",
+    contact: email,
+  });
+  if (error) {
+    params.set(
+      "error",
+      error.code === "over_email_send_rate_limit"
+        ? "이메일 발송 횟수를 초과했습니다. 잠시 후 다시 시도해 주세요."
+        : "초대 이메일을 보내지 못했습니다. Supabase 이메일 설정을 확인해 주세요.",
+    );
+  } else {
+    params.set("success", `${email}로 보호자 초대 이메일을 보냈습니다.`);
+  }
+
+  redirect(`/settings?${params.toString()}`);
+}
+
 export async function requestAccountDeletion(formData: FormData) {
   const supabase = await createClient();
   const {

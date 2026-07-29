@@ -2,7 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canExportLearningData } from "@/lib/data-export-access";
-import { createFamilyInvitation, requestAccountDeletion } from "./actions";
+import {
+  createFamilyInvitation,
+  requestAccountDeletion,
+  sendFamilyInvitationEmail,
+} from "./actions";
+import { CopyInviteLinkButton } from "./copy-invite-link-button";
 
 export default async function SettingsPage({
   searchParams,
@@ -88,24 +93,16 @@ export default async function SettingsPage({
             {invite}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <a
-              href={
-                channel === "sms"
-                  ? `sms:${encodeURIComponent(contact ?? "")}?body=${encodeURIComponent(`xonote 보호자·자녀 연결 초대입니다.\n${invite}`)}`
-                  : `mailto:${encodeURIComponent(contact ?? "")}?subject=${encodeURIComponent("xonote 보호자·자녀 연결 초대")}&body=${encodeURIComponent(`아래 링크를 열어 로그인 또는 회원가입 후 연결을 승인해 주세요.\n\n${invite}`)}`
-              }
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
-            >
-              {channel === "sms" ? "문자 앱으로 보내기" : "이메일 앱으로 보내기"}
-            </a>
-            <a
-              href={invite}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-lg border border-indigo-300 px-4 py-2 text-sm font-semibold text-indigo-700 dark:border-indigo-700 dark:text-indigo-200"
-            >
-              초대 화면 미리보기
-            </a>
+            {channel === "email" && contact && (
+              <form action={sendFamilyInvitationEmail}>
+                <input type="hidden" name="email" value={contact} />
+                <input type="hidden" name="inviteUrl" value={invite} />
+                <button className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">
+                  이메일로 전송하기
+                </button>
+              </form>
+            )}
+            <CopyInviteLinkButton inviteUrl={invite} />
           </div>
           <p className="mt-3 text-xs text-indigo-700 dark:text-indigo-300">
             링크는 7일 동안 한 번만 사용할 수 있습니다. 초대 대상에게만 전달해 주세요.
@@ -389,24 +386,20 @@ export default async function SettingsPage({
 function InviteContactFields() {
   return (
     <div className="space-y-3">
+      <input type="hidden" name="channel" value="email" />
       <label className="block text-sm">
-        <span className="font-medium">초대 방법</span>
-        <select name="channel" defaultValue="email" className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900">
-          <option value="email">이메일</option>
-          <option value="sms">문자</option>
-        </select>
+        <span className="font-medium">보호자 이메일</span>
+        <input
+          name="email"
+          type="email"
+          required
+          placeholder="guardian@example.com"
+          className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
+        />
       </label>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block text-sm">
-          <span className="font-medium">이메일</span>
-          <input name="email" type="email" placeholder="guardian@example.com" className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900" />
-        </label>
-        <label className="block text-sm">
-          <span className="font-medium">휴대전화</span>
-          <input name="phone" type="tel" inputMode="tel" placeholder="+821012345678" className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900" />
-        </label>
-      </div>
-      <p className="text-xs text-neutral-500">선택한 초대 방법에 해당하는 연락처만 입력해 주세요.</p>
+      <p className="text-xs text-neutral-500">
+        링크 생성 후 이메일로 바로 보내거나 공유링크를 복사할 수 있습니다.
+      </p>
     </div>
   );
 }
