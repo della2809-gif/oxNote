@@ -68,7 +68,7 @@ function FilePreview({
     <img
       src={url}
       alt={alt}
-      className="max-h-[520px] w-full rounded-2xl bg-slate-50 object-contain"
+      className="h-auto max-h-[520px] w-full max-w-full rounded-2xl bg-slate-50 object-contain"
     />
   );
 }
@@ -102,8 +102,8 @@ export default async function NoteDetailPage({
   ]);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 text-slate-900">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="mx-auto w-full min-w-0 max-w-6xl space-y-4 overflow-x-clip text-slate-900 sm:space-y-6">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
           <Link href="/notes" className="font-semibold text-indigo-600 hover:text-indigo-700">← 오답노트</Link>
           {subject && (
@@ -117,25 +117,25 @@ export default async function NoteDetailPage({
           )}
           {typedNote.source && <span>· {typedNote.source}</span>}
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
           <Link
             href="/notes/new"
-            className="rounded-xl bg-indigo-50 px-4 py-2.5 text-sm font-bold text-indigo-600 transition hover:bg-indigo-100"
+            className="min-w-0 rounded-xl bg-indigo-50 px-2 py-2.5 text-center text-xs font-bold text-indigo-600 transition hover:bg-indigo-100 sm:px-4 sm:text-sm"
           >
             + 새 문제 분석
           </Link>
           <button
             type="submit"
             form="mistake-reason-form"
-            className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700"
+            className="min-w-0 rounded-xl bg-indigo-600 px-2 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700 sm:px-4 sm:text-sm"
           >
             저장
           </button>
-          <form action={deleteNote}>
+          <form action={deleteNote} className="min-w-0">
             <input type="hidden" name="id" value={typedNote.id} />
             <button
               type="submit"
-              className="rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-bold text-rose-500 transition hover:bg-rose-50"
+              className="w-full min-w-0 rounded-xl border border-rose-200 px-2 py-2.5 text-xs font-bold text-rose-500 transition hover:bg-rose-50 sm:px-4 sm:text-sm"
             >
               삭제
             </button>
@@ -143,11 +143,11 @@ export default async function NoteDetailPage({
         </div>
       </div>
 
-      <section className="rounded-3xl border border-indigo-100 bg-indigo-50/50 p-6 shadow-sm sm:p-8">
+      <section className="w-full min-w-0 overflow-hidden rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 shadow-sm sm:rounded-3xl sm:p-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm font-bold text-indigo-600">AI 추출 내용 확인</p>
-            <h2 className="mt-2 text-2xl font-bold">저장된 문제와 정답을 확인해 주세요</h2>
+            <h2 className="mt-2 break-keep text-xl font-bold sm:text-2xl">저장된 문제와 정답을 확인해 주세요</h2>
             <p className="mt-2 text-sm leading-6 text-slate-500">
               사진이나 PDF에서 잘못 읽힌 글자, 숫자, 수식 또는 선택지를 직접 고칠 수 있습니다.
               수정한 내용이 오답노트와 복습에 사용됩니다.
@@ -215,8 +215,8 @@ export default async function NoteDetailPage({
         </form>
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_1.05fr]">
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-5">
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-5">
           <div className="mb-4 flex items-center justify-between">
             <span className="max-w-[75%] truncate rounded-lg bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-600">
               문제 원본 {typedNote.source_file_url ? `· ${typedNote.source_file_url.split("/").pop()?.replace(/^[^-]+-/, "")}` : ""}
@@ -231,9 +231,9 @@ export default async function NoteDetailPage({
           )}
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-8">
           <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-600">문제 인식 완료</span>
-          <h1 className="mt-4 text-2xl font-bold leading-snug text-slate-900 sm:text-3xl">
+          <h1 className="mt-4 break-words text-xl font-bold leading-snug text-slate-900 sm:text-3xl">
             {details?.title || typedNote.question}
           </h1>
           {details && (
@@ -250,7 +250,7 @@ export default async function NoteDetailPage({
           </div>
 
           {details && (
-            <div className="mt-5 rounded-2xl bg-slate-900 px-5 py-4 text-white">
+            <div className="mt-5 overflow-hidden rounded-2xl bg-slate-900 px-4 py-4 text-white sm:px-5">
               <div className="flex flex-wrap items-center gap-3 text-xs">
                 <span className="text-slate-400">분석 순서</span>
                 <span>{details.questionType || "문제 유형 파악"}</span>
@@ -265,11 +265,11 @@ export default async function NoteDetailPage({
       </div>
 
       {details?.solutionSteps.length ? (
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <section className="w-full min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-sm font-bold text-indigo-600">단계별 풀이</p>
-              <h2 className="mt-3 text-2xl font-bold">풀이 흐름을 순서대로 따라가 보세요</h2>
+              <h2 className="mt-3 break-keep text-xl font-bold sm:text-2xl">풀이 흐름을 순서대로 따라가 보세요</h2>
             </div>
             {details.answerSummary && (
               <span className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-600">
@@ -304,9 +304,9 @@ export default async function NoteDetailPage({
       ) : null}
 
       {details?.confusionPoints.length ? (
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <section className="w-full min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-8">
           <p className="text-sm font-bold text-indigo-600">예상 혼동 지점</p>
-          <h2 className="mt-3 text-2xl font-bold">이 부분을 다시 확인해 보세요</h2>
+          <h2 className="mt-3 break-keep text-xl font-bold sm:text-2xl">이 부분을 다시 확인해 보세요</h2>
           {!typedNote.student_solution_file_url && !typedNote.my_answer && (
             <div className="mt-6 rounded-2xl bg-amber-50 px-5 py-4 text-sm text-amber-800">
               <strong>아직 학생 풀이가 없어요.</strong>
@@ -333,9 +333,9 @@ export default async function NoteDetailPage({
         </section>
       ) : null}
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <section className="w-full min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-8">
         <p className="text-sm font-bold text-indigo-600">나의 오답 기록</p>
-        <h2 className="mt-3 text-2xl font-bold">내가 틀린 이유</h2>
+        <h2 className="mt-3 text-xl font-bold sm:text-2xl">내가 틀린 이유</h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">
           AI가 찾은 예상 혼동 지점을 참고해서, 실제로 내가 왜 틀렸는지 직접 적어보세요.
         </p>
@@ -358,7 +358,7 @@ export default async function NoteDetailPage({
       </section>
 
       {(solutionFileUrl || typedNote.my_answer) && (
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <section className="w-full min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-8">
           <p className="text-sm font-bold text-indigo-600">학생 풀이</p>
           <h2 className="mt-3 text-xl font-bold">내가 풀었던 과정을 함께 확인해요</h2>
           <div className="mt-5 grid gap-5 lg:grid-cols-2">
@@ -379,7 +379,7 @@ export default async function NoteDetailPage({
         </section>
       )}
 
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-sm shadow-sm">
+      <section className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm shadow-sm sm:p-5">
         <span className="text-slate-500">복습 단계 · Box {typedNote.box_level} / 5</span>
         {typedNote.mastered ? (
           <span className="font-bold text-emerald-600">완전 학습 완료</span>

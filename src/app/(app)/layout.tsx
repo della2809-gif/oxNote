@@ -26,22 +26,22 @@ export default async function AppLayout({
   const isAdmin = user.app_metadata?.role === "admin";
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-neutral-950">
+    <div className="min-h-screen w-full min-w-0 overflow-x-clip bg-slate-50 dark:bg-neutral-950">
       <header className="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/90">
-        <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <div className="flex flex-wrap items-center gap-5">
+        <div className="mx-auto flex w-full max-w-[1500px] min-w-0 flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-6">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-5 gap-y-3">
             <Link
               href="/dashboard"
               className="text-lg font-bold tracking-tight text-slate-950 dark:text-white"
             >
               xonote
             </Link>
-            <nav className="flex flex-wrap gap-4 text-sm">
+            <nav className="order-3 flex w-full min-w-0 gap-4 overflow-x-auto pb-1 text-sm [scrollbar-width:none] sm:order-none sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0">
               {NAV_LINKS.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="text-slate-600 transition hover:text-slate-950 dark:text-neutral-400 dark:hover:text-white"
+                  className="shrink-0 text-slate-600 transition hover:text-slate-950 dark:text-neutral-400 dark:hover:text-white"
                 >
                   {link.label}
                 </Link>
@@ -56,7 +56,7 @@ export default async function AppLayout({
               )}
             </nav>
           </div>
-          <form action={signOut} className="flex items-center gap-3">
+          <form action={signOut} className="flex shrink-0 items-center gap-3">
             <span className="hidden max-w-[220px] truncate text-sm text-slate-500 sm:block">
               {user.email}
             </span>
@@ -69,7 +69,7 @@ export default async function AppLayout({
           </form>
         </div>
       </header>
-      <main className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto w-full max-w-[1500px] min-w-0 overflow-x-clip px-3 py-5 sm:px-6 sm:py-8">
         {children}
       </main>
     </div>
