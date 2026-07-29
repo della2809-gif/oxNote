@@ -10,8 +10,17 @@ function authErrorMessage(code?: string) {
   if (code === "email_not_confirmed") {
     return "이메일 인증이 아직 완료되지 않았습니다. 받은편지함의 인증 메일을 확인해 주세요.";
   }
-  if (code === "over_request_rate_limit") {
-    return "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.";
+  if (
+    code === "over_request_rate_limit"
+    || code === "over_email_send_rate_limit"
+  ) {
+    return "이메일 발송 한도를 초과했습니다. Supabase 기본 메일은 시간당 2통까지만 발송됩니다. 약 1시간 후 다시 시도해 주세요.";
+  }
+  if (code === "email_address_not_authorized") {
+    return "현재 기본 메일 발송 설정에서는 이 주소로 메일을 보낼 수 없습니다. 운영용 SMTP 연결이 필요합니다.";
+  }
+  if (code === "email_address_invalid") {
+    return "사용할 수 없는 이메일 주소입니다. 이메일 주소를 다시 확인해 주세요.";
   }
   if (
     code === "session_not_found"
