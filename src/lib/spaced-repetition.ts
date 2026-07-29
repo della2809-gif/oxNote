@@ -1,26 +1,32 @@
-// Leitner-box style spaced repetition: 5 boxes, review interval grows on
-// correct answers and resets to box 1 on mistakes.
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-const BOX_INTERVAL_DAYS: Record<number, number> = {
-  1: 1,
-  2: 3,
-  3: 7,
-  4: 14,
-  5: 30,
-};
-
-export function nextBoxLevel(currentLevel: number, wasCorrect: boolean): number {
-  if (!wasCorrect) return 1;
-  return Math.min(currentLevel + 1, 5);
-}
-
-export function nextReviewDate(boxLevel: number, from: Date = new Date()): Date {
-  const days = BOX_INTERVAL_DAYS[boxLevel] ?? 1;
+function addDays(from: Date, days: number) {
   const next = new Date(from);
-  next.setDate(next.getDate() + days);
+  next.setTime(next.getTime() + days * DAY_MS);
   return next;
 }
 
-export function isMastered(boxLevel: number): boolean {
-  return boxLevel >= 5;
+export function initialReviewDate(from: Date = new Date()) {
+  return addDays(from, 3);
+}
+
+export function reviewScheduleAfterResult(
+  currentStage: number,
+  wasCorrect: boolean,
+  from: Date = new Date(),
+) {
+  if (wasCorrect) {
+    return {
+      stage: Math.max(currentStage, 4),
+      nextReviewAt: addDays(from, 30),
+      mastered: true,
+    };
+  }
+
+  const firstRetry = currentStage <= 1;
+  return {
+    stage: firstRetry ? 2 : 3,
+    nextReviewAt: addDays(from, firstRetry ? 7 : 30),
+    mastered: false,
+  };
 }

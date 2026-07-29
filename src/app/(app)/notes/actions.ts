@@ -11,7 +11,10 @@ import {
   reserveAiUsage,
   usageErrorMessage,
 } from "@/lib/billing";
-import { nextBoxLevel, nextReviewDate, isMastered } from "@/lib/spaced-repetition";
+import {
+  initialReviewDate,
+  reviewScheduleAfterResult,
+} from "@/lib/spaced-repetition";
 
 const ACCEPTED_FILE_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
@@ -168,6 +171,9 @@ export async function createNote(formData: FormData) {
         ...analyzed.tags,
         learningStatus === "correct_review" ? "학습상태:맞았지만 복습" : "학습상태:틀린 문제",
       ],
+      box_level: 1,
+      next_review_at: initialReviewDate().toISOString(),
+      mastered: false,
     })
     .select("id")
     .single();
@@ -354,6 +360,9 @@ export async function createNoteFromFile(formData: FormData) {
         ...analyzed.tags,
         learningStatus === "correct_review" ? "학습상태:맞았지만 복습" : "학습상태:틀린 문제",
       ],
+      box_level: 1,
+      next_review_at: initialReviewDate().toISOString(),
+      mastered: false,
       source_file_url: uploadError ? null : storagePath,
       source_file_size_bytes: uploadError ? null : uploadedFile.size,
       student_solution_file_url: studentSolutionPath,
@@ -491,15 +500,19 @@ export async function submitReview(formData: FormData) {
     .single();
 
   if (note) {
-    const boxLevel = nextBoxLevel(note.box_level, result === "correct");
+    const schedule = reviewScheduleAfterResult(
+      note.box_level,
+      result === "correct",
+    );
     await supabase
       .from("notes")
       .update({
-        box_level: boxLevel,
-        next_review_at: nextReviewDate(boxLevel).toISOString(),
-        mastered: isMastered(boxLevel),
+        box_level: schedule.stage,
+        next_review_at: schedule.nextReviewAt.toISOString(),
+        mastered: schedule.mastered,
       })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", user.id);
 
     await supabase.from("review_logs").insert({ note_id: id, user_id: user.id, result });
   }
