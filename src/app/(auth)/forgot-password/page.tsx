@@ -31,6 +31,19 @@ export default async function ForgotPasswordPage({
         </p>
       )}
 
+      <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+        <p className="font-semibold">재설정 메일은 한 번만 신청해 주세요.</p>
+        <ul className="mt-1 list-disc space-y-1 pl-5">
+          <li>메일 도착까지 최대 5분 정도 걸릴 수 있습니다.</li>
+          <li>받은편지함과 스팸함을 확인해 주세요.</li>
+          <li>연속 신청은 60초 이상 간격을 두어야 합니다.</li>
+          <li>현재 기본 메일은 프로젝트 전체에서 시간당 2통까지만 발송됩니다.</li>
+        </ul>
+        <p className="mt-2 font-medium">
+          한도를 초과한 경우 약 1시간 후 가장 최근 메일로 다시 진행해 주세요.
+        </p>
+      </div>
+
       <div className="space-y-1">
         <label htmlFor="email" className="text-sm font-medium">이메일</label>
         <input
