@@ -31,7 +31,6 @@ export async function createFamilyInvitation(formData: FormData) {
   const relationship = String(formData.get("relationship") ?? "parent");
   const childName = String(formData.get("childName") ?? "").trim();
   const childDateOfBirth = String(formData.get("childDateOfBirth") ?? "");
-  const createChildAccount = formData.get("createChildAccount") === "on";
 
   if (!["child_invites_guardian", "guardian_invites_child"].includes(direction)) {
     redirect("/settings?error=" + encodeURIComponent("올바른 초대 유형을 선택해 주세요."));
@@ -86,11 +85,9 @@ export async function createFamilyInvitation(formData: FormData) {
     token_hash: tokenHash,
   };
 
-  const { data: createdInvitation, error } = await admin
+  const { error } = await admin
     .from("family_invitations")
-    .insert(invitation)
-    .select("id")
-    .single();
+    .insert(invitation);
   if (error) {
     redirect("/settings?error=" + encodeURIComponent("초대를 만들지 못했습니다. DB 마이그레이션 적용 상태를 확인해 주세요."));
   }
@@ -98,40 +95,8 @@ export async function createFamilyInvitation(formData: FormData) {
   const invitePath = `/guardian/invite/${token}`;
   const inviteUrl = `${siteUrl()}${invitePath}`;
 
-  if (
-    direction === "guardian_invites_child"
-    && channel === "email"
-    && createChildAccount
-  ) {
-    const { data, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${siteUrl()}/auth/callback?next=${encodeURIComponent(invitePath)}`,
-      data: {
-        display_name: childName,
-        date_of_birth: childDateOfBirth,
-        country_code: "KR",
-        family_invitation_id: createdInvitation.id,
-      },
-    });
-    if (inviteError) {
-      await admin.from("family_invitations").delete().eq("id", createdInvitation.id);
-      redirect("/settings?error=" + encodeURIComponent(
-        inviteError.message.includes("already")
-          ? "이미 가입된 이메일입니다. ‘기존 자녀 연결’ 방식으로 초대 링크를 보내 주세요."
-          : "자녀 가입 메일을 보내지 못했습니다. Supabase 이메일 설정을 확인해 주세요.",
-      ));
-    }
-    if (data.user) {
-      await admin
-        .from("family_invitations")
-        .update({ child_user_id: data.user.id })
-        .eq("id", createdInvitation.id);
-    }
-  }
-
   const params = new URLSearchParams({
-    success: createChildAccount
-      ? "자녀 가입 및 연결 초대 메일을 보냈습니다."
-      : "초대 링크를 만들었습니다. 아래 버튼으로 전달해 주세요.",
+    success: "초대 링크를 만들었습니다. 이메일로 전송하면 가입 여부를 자동 확인해 연결합니다.",
     invite: inviteUrl,
     channel,
     contact: channel === "email" ? email : phone,
@@ -171,7 +136,7 @@ export async function sendFamilyInvitationEmail(formData: FormData) {
   const admin = createAdminClient();
   const { data: invitation } = await admin
     .from("family_invitations")
-    .select("id, invitee_email")
+    .select("id, direction, invitee_email, child_name, child_date_of_birth")
     .eq("token_hash", tokenHash)
     .eq("inviter_user_id", user.id)
     .eq("status", "pending")
@@ -183,28 +148,71 @@ export async function sendFamilyInvitationEmail(formData: FormData) {
   }
 
   const invitePath = `/guardian/invite/${token}`;
-  const { error } = await admin.auth.signInWithOtp({
-    email,
-    options: {
-      shouldCreateUser: true,
-      emailRedirectTo: `${siteUrl()}/auth/callback?next=${encodeURIComponent(invitePath)}`,
-    },
-  });
+  const autoConnectPath = `${invitePath}/auto`;
+  const emailRedirectTo = `${siteUrl()}/auth/callback?next=${encodeURIComponent(autoConnectPath)}`;
+  let sendError: { code?: string; message: string } | null = null;
+
+  if (invitation.direction === "guardian_invites_child") {
+    const { data, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
+      redirectTo: emailRedirectTo,
+      data: {
+        display_name: invitation.child_name,
+        date_of_birth: invitation.child_date_of_birth,
+        country_code: "KR",
+        family_invitation_id: invitation.id,
+      },
+    });
+
+    if (!inviteError) {
+      if (data.user) {
+        await admin
+          .from("family_invitations")
+          .update({ child_user_id: data.user.id })
+          .eq("id", invitation.id);
+      }
+    } else if (
+      inviteError.code === "email_exists"
+      || /already|registered|exists/i.test(inviteError.message)
+    ) {
+      const { error: magicLinkError } = await admin.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo,
+        },
+      });
+      sendError = magicLinkError;
+    } else {
+      sendError = inviteError;
+    }
+  } else {
+    const { error: magicLinkError } = await admin.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo,
+      },
+    });
+    sendError = magicLinkError;
+  }
 
   const params = new URLSearchParams({
     invite: inviteUrl,
     channel: "email",
     contact: email,
   });
-  if (error) {
+  if (sendError) {
     params.set(
       "error",
-      error.code === "over_email_send_rate_limit"
+      sendError.code === "over_email_send_rate_limit"
         ? "이메일 발송 횟수를 초과했습니다. 잠시 후 다시 시도해 주세요."
         : "초대 이메일을 보내지 못했습니다. Supabase 이메일 설정을 확인해 주세요.",
     );
   } else {
-    params.set("success", `${email}로 보호자 초대 이메일을 보냈습니다.`);
+    params.set(
+      "success",
+      `${email}로 초대 이메일을 보냈습니다. 받은 사람이 이메일 인증을 완료하면 계정이 자동 연결됩니다.`,
+    );
   }
 
   redirect(`/settings?${params.toString()}`);

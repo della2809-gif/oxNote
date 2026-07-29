@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { acceptFamilyInvitationForUser } from "@/lib/family-invitations";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -14,6 +15,39 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
+      const familyInviteMatch = next.match(/^\/guardian\/invite\/([A-Za-z0-9_-]+)\/auto$/);
+      if (familyInviteMatch) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) {
+          return NextResponse.redirect(
+            new URL(
+              `/login?error=${encodeURIComponent("초대 인증 세션을 확인하지 못했습니다.")}`,
+              url.origin,
+            ),
+          );
+        }
+        const result = await acceptFamilyInvitationForUser({
+          token: familyInviteMatch[1],
+          userId: user.id,
+          userEmail: user.email,
+        });
+        if (result.ok) {
+          return NextResponse.redirect(
+            new URL(
+              `/settings?success=${encodeURIComponent("이메일 인증과 자녀 연결이 완료되었습니다.")}`,
+              url.origin,
+            ),
+          );
+        }
+        return NextResponse.redirect(
+          new URL(
+            `/guardian/invite/${familyInviteMatch[1]}?error=${encodeURIComponent(result.error)}`,
+            url.origin,
+          ),
+        );
+      }
       return NextResponse.redirect(new URL(next, url.origin));
     }
 

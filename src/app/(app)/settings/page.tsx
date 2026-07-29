@@ -322,13 +322,10 @@ export default async function SettingsPage({
                 </label>
               </div>
               <InviteContactFields />
-              <label className="flex items-start gap-2 rounded-lg bg-neutral-50 p-3 text-sm dark:bg-neutral-900">
-                <input name="createChildAccount" type="checkbox" className="mt-1" />
-                <span>
-                  이메일로 새 자녀 계정 생성 초대 보내기
-                  <small className="mt-1 block text-neutral-500">이미 가입된 자녀라면 체크하지 마세요. 문자 초대에서는 사용할 수 없습니다.</small>
-                </span>
-              </label>
+              <p className="rounded-lg bg-indigo-50 p-3 text-sm text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200">
+                이메일 전송 시 가입 여부를 자동 확인합니다. 신규 이메일은 자녀 계정을 만들고,
+                기존 회원은 이메일 인증 후 현재 계정에 바로 연결됩니다.
+              </p>
               <input type="hidden" name="relationship" value="parent" />
               <button className="w-full rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-neutral-900">
                 자녀 초대 시작하기
