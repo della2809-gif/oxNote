@@ -51,3 +51,64 @@ select,
 button {
   min-width: 0;
 }
+
+.print-sheet {
+  display: flex;
+  min-height: 297mm;
+  width: 210mm;
+  flex-direction: column;
+  overflow: hidden;
+  background: white;
+  padding: 10mm;
+  color: #0f172a;
+  box-shadow: 0 12px 35px rgb(15 23 42 / 10%);
+}
+
+@media screen and (max-width: 850px) {
+  .print-sheet {
+    min-height: auto;
+    width: 100%;
+    padding: 16px;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html,
+  body {
+    overflow: visible !important;
+    background: white !important;
+  }
+
+  body:has(.print-document) > div > header,
+  .print-toolbar {
+    display: none !important;
+  }
+
+  body:has(.print-document) main {
+    max-width: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .print-document {
+    max-width: none !important;
+  }
+
+  .print-sheet {
+    height: 297mm;
+    min-height: 297mm;
+    break-after: page;
+    page-break-after: always;
+    box-shadow: none;
+  }
+
+  .print-sheet:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+}

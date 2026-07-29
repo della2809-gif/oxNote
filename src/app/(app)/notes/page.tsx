@@ -325,7 +325,7 @@ export default async function NotesPage({
         )}
       </section>
 
-      <section>
+      <form action="/notes/print" method="get" target="_blank">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold">
@@ -334,6 +334,17 @@ export default async function NotesPage({
             </h2>
             <p className="mt-1 text-xs text-slate-400">{filteredNotes.length}개의 오답</p>
           </div>
+          {filteredNotes.length > 0 && (
+            <div className="text-right">
+              <button
+                type="submit"
+                className="rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-sm font-bold text-indigo-600 shadow-sm transition hover:bg-indigo-50"
+              >
+                선택 항목 인쇄 · PDF 저장
+              </button>
+              <p className="mt-1 text-[11px] text-slate-400">한 번에 최대 20개</p>
+            </div>
+          )}
         </div>
 
         <ul className="space-y-3">
@@ -345,10 +356,19 @@ export default async function NotesPage({
               : [];
 
             return (
-              <li key={note.id}>
+              <li key={note.id} className="relative">
+                <label className="absolute left-4 top-4 z-10 grid h-9 w-9 cursor-pointer place-items-center rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <span className="sr-only">이 문제 선택</span>
+                  <input
+                    type="checkbox"
+                    name="ids"
+                    value={note.id}
+                    className="h-4 w-4 accent-indigo-600"
+                  />
+                </label>
                 <Link
                   href={`/notes/${note.id}`}
-                  className="group block rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
+                  className="group block rounded-2xl border border-slate-200 bg-white py-5 pl-16 pr-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
                 >
                   <div className="flex flex-wrap items-center gap-2 text-xs">
                     {subject && (
@@ -438,7 +458,7 @@ export default async function NotesPage({
             </li>
           )}
         </ul>
-      </section>
+      </form>
     </div>
   );
 }
