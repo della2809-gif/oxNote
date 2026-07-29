@@ -45,7 +45,7 @@ export async function updateUserPlan(formData: FormData) {
 
   const now = new Date();
   const periodEnd = new Date(now);
-  periodEnd.setUTCMonth(periodEnd.getUTCMonth() + 1);
+  periodEnd.setUTCDate(periodEnd.getUTCDate() + 30);
 
   const { error } = await admin.from("subscriptions").upsert(
     {
@@ -64,6 +64,7 @@ export async function updateUserPlan(formData: FormData) {
   if (error) adminError(error.message);
   revalidatePath("/admin");
   revalidatePath("/billing");
+  revalidatePath("/settings");
 }
 
 export async function updateAccountStatus(formData: FormData) {

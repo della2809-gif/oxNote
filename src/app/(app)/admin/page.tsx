@@ -587,14 +587,24 @@ export default async function AdminPage({
                             className={`mt-1 text-xs font-medium ${
                               subscription?.plan_id !== "free" &&
                               (subscription?.status === "active" ||
-                                subscription?.status === "trialing")
+                                subscription?.status === "trialing") &&
+                              Boolean(
+                                subscription?.current_period_end &&
+                                  new Date(subscription.current_period_end).getTime() >
+                                    now.getTime(),
+                              )
                                 ? "text-emerald-600"
                                 : "text-slate-400"
                             }`}
                           >
                             {subscription?.plan_id !== "free" &&
                             (subscription?.status === "active" ||
-                              subscription?.status === "trialing")
+                              subscription?.status === "trialing") &&
+                            Boolean(
+                              subscription?.current_period_end &&
+                                new Date(subscription.current_period_end).getTime() >
+                                  now.getTime(),
+                            )
                               ? "학습 데이터 내려받기 허용"
                               : "학습 데이터 내려받기 차단"}
                           </p>

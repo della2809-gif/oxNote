@@ -13,7 +13,7 @@ export async function GET() {
 
   const { data: accessSubscription, error: accessError } = await supabase
     .from("subscriptions")
-    .select("plan_id, status")
+    .select("plan_id, status, current_period_end")
     .eq("user_id", user.id)
     .maybeSingle();
 

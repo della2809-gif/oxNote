@@ -21,6 +21,7 @@ export default async function SettingsPage({
     { data: deletionRequest },
     { data: guardianLinks },
     { data: subscription },
+    { data: plans },
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -44,11 +45,26 @@ export default async function SettingsPage({
       .order("created_at", { ascending: false }),
     supabase
       .from("subscriptions")
-      .select("plan_id, status")
+      .select("plan_id, status, current_period_start, current_period_end")
       .eq("user_id", user.id)
       .maybeSingle(),
+    supabase.from("plans").select("id, name").eq("is_active", true),
   ]);
   const exportAllowed = canExportLearningData(subscription);
+  const currentPlan =
+    plans?.find((plan) => plan.id === subscription?.plan_id) ??
+    plans?.find((plan) => plan.id === "free");
+  const now = new Date();
+  const periodEnd = subscription?.current_period_end
+    ? new Date(subscription.current_period_end)
+    : null;
+  const subscriptionIsActive =
+    (subscription?.status === "active" || subscription?.status === "trialing") &&
+    Boolean(periodEnd && periodEnd.getTime() > now.getTime());
+  const remainingDays =
+    subscriptionIsActive && periodEnd
+      ? Math.max(0, Math.ceil((periodEnd.getTime() - now.getTime()) / 86_400_000))
+      : 0;
 
   return (
     <div className="space-y-8">
@@ -62,7 +78,7 @@ export default async function SettingsPage({
 
       <section className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
         <h2 className="font-semibold">내 계정</h2>
-        <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
+        <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <dt className="text-neutral-500">이름</dt>
             <dd className="mt-1 font-medium">{profile?.display_name ?? "-"}</dd>
@@ -73,7 +89,30 @@ export default async function SettingsPage({
           </div>
           <div>
             <dt className="text-neutral-500">계정 상태</dt>
-            <dd className="mt-1 font-medium">{profile?.account_status ?? "active"}</dd>
+            <dd className="mt-1 font-medium">
+              {profile?.account_status === "suspended" ? "이용 정지" : "정상"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">이용 요금제</dt>
+            <dd className="mt-1 font-medium">{currentPlan?.name ?? "Free"}</dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">요금제 상태</dt>
+            <dd className="mt-1 font-medium">
+              {subscriptionStatusLabel(subscription?.status)}
+              {subscriptionIsActive && remainingDays > 0 ? ` · D-${remainingDays}` : ""}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">30일 활성기간</dt>
+            <dd className="mt-1 font-medium">
+              {subscriptionIsActive &&
+              subscription?.current_period_start &&
+              subscription.current_period_end
+                ? `${formatSubscriptionDate(subscription.current_period_start)} ~ ${formatSubscriptionDate(subscription.current_period_end)}`
+                : "활성 구독 없음"}
+            </dd>
           </div>
         </dl>
         <div className="mt-5 flex flex-wrap gap-3">
@@ -217,4 +256,23 @@ function Notice({ tone, children }: { tone: "error" | "success"; children: React
       {children}
     </p>
   );
+}
+
+function subscriptionStatusLabel(status?: string) {
+  const labels: Record<string, string> = {
+    active: "활성",
+    trialing: "체험 중",
+    past_due: "결제 확인 필요",
+    paused: "일시 정지",
+    canceled: "해지",
+  };
+  return status ? (labels[status] ?? status) : "무료";
+}
+
+function formatSubscriptionDate(value: string) {
+  return new Date(value).toLocaleDateString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
 }
