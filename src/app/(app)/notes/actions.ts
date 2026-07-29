@@ -19,6 +19,14 @@ const MAX_QUESTION_LENGTH = 12_000;
 const MAX_ANSWER_LENGTH = 5_000;
 const MAX_SOURCE_LENGTH = 500;
 const MAX_MISTAKE_REASON_LENGTH = 2_000;
+const LEARNING_STATUSES = ["incorrect", "correct_review"] as const;
+
+function readLearningStatus(formData: FormData) {
+  const value = String(formData.get("learningStatus") ?? "");
+  return LEARNING_STATUSES.includes(value as (typeof LEARNING_STATUSES)[number])
+    ? (value as (typeof LEARNING_STATUSES)[number])
+    : null;
+}
 const SUBJECT_COLORS = [
   "#6366f1",
   "#ec4899",
@@ -109,9 +117,10 @@ export async function createNote(formData: FormData) {
   const correctAnswer = String(formData.get("correctAnswer") ?? "").trim();
   const source = String(formData.get("source") ?? "").trim();
   const subjectId = String(formData.get("subjectId") ?? "") || null;
+  const learningStatus = readLearningStatus(formData);
 
-  if (!question || !correctAnswer) {
-    redirect("/notes/new?error=" + encodeURIComponent("문제와 정답은 필수입니다."));
+  if (!question || !myAnswer || !correctAnswer || !learningStatus) {
+    redirect("/notes/new?error=" + encodeURIComponent("문제 상태, 내가 선택한 답, 정답은 필수입니다."));
   }
   if (
     question.length > MAX_QUESTION_LENGTH ||
@@ -132,6 +141,7 @@ export async function createNote(formData: FormData) {
     myAnswer,
     correctAnswer,
     subject: subjectName,
+    learningStatus,
   });
 
   await finalizeAiUsage({
@@ -154,7 +164,10 @@ export async function createNote(formData: FormData) {
       correct_answer: correctAnswer,
       ai_analysis: analyzed.analysis,
       mistake_type: analyzed.mistakeType,
-      tags: analyzed.tags,
+      tags: [
+        ...analyzed.tags,
+        learningStatus === "correct_review" ? "학습상태:맞았지만 복습" : "학습상태:틀린 문제",
+      ],
     })
     .select("id")
     .single();
@@ -182,6 +195,14 @@ export async function createNoteFromFile(formData: FormData) {
   const subjectId = String(formData.get("subjectId") ?? "") || null;
   const myAnswerHint = String(formData.get("myAnswerHint") ?? "").trim();
   const correctAnswerHint = String(formData.get("correctAnswerHint") ?? "").trim();
+  const learningStatus = readLearningStatus(formData);
+
+  if (!myAnswerHint || !correctAnswerHint || !learningStatus) {
+    redirect(
+      "/notes/new?error=" +
+        encodeURIComponent("문제 상태, 내가 선택한 답, 정답을 모두 입력해 주세요."),
+    );
+  }
 
   const file =
     selectedFile instanceof File && selectedFile.size > 0
@@ -254,6 +275,7 @@ export async function createNoteFromFile(formData: FormData) {
       subject: subjectName,
       myAnswerHint,
       correctAnswerHint,
+      learningStatus,
       studentSolutionBase64: solutionArrayBuffer
         ? Buffer.from(solutionArrayBuffer).toString("base64")
         : undefined,
@@ -328,7 +350,10 @@ export async function createNoteFromFile(formData: FormData) {
       ai_analysis: analyzed.analysis,
       ai_details: analyzed.details,
       mistake_type: analyzed.mistakeType,
-      tags: analyzed.tags,
+      tags: [
+        ...analyzed.tags,
+        learningStatus === "correct_review" ? "학습상태:맞았지만 복습" : "학습상태:틀린 문제",
+      ],
       source_file_url: uploadError ? null : storagePath,
       source_file_size_bytes: uploadError ? null : uploadedFile.size,
       student_solution_file_url: studentSolutionPath,

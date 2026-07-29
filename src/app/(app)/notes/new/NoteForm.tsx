@@ -173,13 +173,14 @@ export default function NoteForm({
             <textarea name="question" required rows={5} className={fieldClass} />
           </label>
           <label className="block space-y-2 text-sm font-semibold text-slate-700">
-            <span>내가 쓴 답</span>
-            <textarea name="myAnswer" rows={3} className={fieldClass} />
+            <span>내가 선택한 답</span>
+            <textarea name="myAnswer" required rows={3} className={fieldClass} placeholder="예: ② 또는 내가 작성한 답" />
           </label>
           <label className="block space-y-2 text-sm font-semibold text-slate-700">
             <span>정답</span>
-            <textarea name="correctAnswer" required rows={3} className={fieldClass} />
+            <textarea name="correctAnswer" required rows={3} className={fieldClass} placeholder="예: ③ 또는 정답 내용" />
           </label>
+          <LearningStatusField />
           <SubmitButton ready />
         </form>
       </div>
@@ -440,13 +441,16 @@ export default function NoteForm({
 
             <div className="mt-4 grid w-full gap-3 text-left sm:grid-cols-2">
               <label className="block space-y-2 text-xs font-bold text-slate-600">
-                <span>내가 쓴 답 <span className="font-normal text-slate-400">(선택)</span></span>
-                <input name="myAnswerHint" className={fieldClass} placeholder="파일에 없으면 입력" />
+                <span>내가 선택한 답 <span className="text-red-500">*</span></span>
+                <input name="myAnswerHint" required className={fieldClass} placeholder="예: ② 또는 내가 작성한 답" />
               </label>
               <label className="block space-y-2 text-xs font-bold text-slate-600">
-                <span>정답 <span className="font-normal text-slate-400">(선택)</span></span>
-                <input name="correctAnswerHint" className={fieldClass} placeholder="알고 있다면 입력" />
+                <span>정답 <span className="text-red-500">*</span></span>
+                <input name="correctAnswerHint" required className={fieldClass} placeholder="예: ③ 또는 정답 내용" />
               </label>
+            </div>
+            <div className="mt-4 w-full text-left">
+              <LearningStatusField />
             </div>
           </div>
 
@@ -482,6 +486,26 @@ export default function NoteForm({
       />
     )}
     </>
+  );
+}
+
+function LearningStatusField() {
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-semibold text-slate-700">
+        문제 상태 <span className="text-red-500">*</span>
+      </legend>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50 has-[:checked]:text-indigo-700">
+          <input type="radio" name="learningStatus" value="incorrect" required defaultChecked />
+          틀린 문제
+        </label>
+        <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50 has-[:checked]:text-indigo-700">
+          <input type="radio" name="learningStatus" value="correct_review" required />
+          맞았지만 복습
+        </label>
+      </div>
+    </fieldset>
   );
 }
 

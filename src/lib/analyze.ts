@@ -138,11 +138,13 @@ export async function analyzeFromText({
   myAnswer,
   correctAnswer,
   subject,
+  learningStatus = "incorrect",
 }: {
   question: string;
   myAnswer: string;
   correctAnswer: string;
   subject: string;
+  learningStatus?: "incorrect" | "correct_review";
 }): Promise<TextAnalysisResult> {
   try {
     const response = await getOpenAI().responses.create({
@@ -156,6 +158,9 @@ export async function analyzeFromText({
             `문제: ${question}`,
             `학생 답: ${myAnswer || "(무응답)"}`,
             `정답: ${correctAnswer}`,
+            learningStatus === "correct_review"
+              ? "문제 상태: 맞았지만 복습. 학생이 틀렸다고 단정하지 말고, 맞힌 풀이를 점검하며 핵심 개념과 다시 확인할 지점을 설명해."
+              : "문제 상태: 틀린 문제. 학생 답과 정답의 차이를 근거로 오답 원인을 분석해.",
           ]
             .filter(Boolean)
             .join("\n"),
@@ -202,6 +207,7 @@ export async function analyzeFromFile({
   subject,
   myAnswerHint,
   correctAnswerHint,
+  learningStatus,
   studentSolutionBase64,
   studentSolutionMimeType,
   studentSolutionFilename,
@@ -212,6 +218,7 @@ export async function analyzeFromFile({
   subject: string;
   myAnswerHint: string;
   correctAnswerHint: string;
+  learningStatus: "incorrect" | "correct_review";
   studentSolutionBase64?: string;
   studentSolutionMimeType?: string;
   studentSolutionFilename?: string;
@@ -246,7 +253,10 @@ export async function analyzeFromFile({
 
   const hintLines = [
     subject ? `과목: ${subject}` : null,
-    "첨부된 이미지 또는 PDF에서 문제와 학생의 답, 정답을 읽어내고 오답 원인을 분석해줘.",
+    "첨부된 이미지 또는 PDF에서 문제를 정확히 읽고, 사용자가 입력한 학생 답과 정답을 최우선으로 사용해 분석해줘.",
+    learningStatus === "correct_review"
+      ? "문제 상태는 '맞았지만 복습'이야. 학생이 틀렸다고 표현하지 말고, 정답에 도달한 과정을 점검하면서 핵심 개념과 다시 확인할 지점을 정리해줘."
+      : "문제 상태는 '틀린 문제'야. 학생 답과 정답의 차이를 근거로 실제 오답 원인을 분석해줘.",
     studentSolutionContent
       ? "두 번째 첨부 파일은 학생의 실제 풀이야. 표시된 계산과 문장을 근거로 실제 오류 지점을 찾아줘."
       : "학생 풀이 파일은 없어. confusion_points에는 이 문제에서 자주 생기는 예상 혼동 지점을 작성해줘.",
