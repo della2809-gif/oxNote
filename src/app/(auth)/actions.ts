@@ -146,6 +146,34 @@ export async function requestPasswordReset(formData: FormData) {
   );
 }
 
+export async function resendSignupConfirmation(formData: FormData) {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    redirect(
+      `/resend-confirmation?error=${encodeURIComponent("올바른 이메일을 입력해 주세요.")}`,
+    );
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email,
+    options: {
+      emailRedirectTo: `${publicSiteUrl()}/auth/callback?next=/dashboard`,
+    },
+  });
+
+  if (error) {
+    redirect(
+      `/resend-confirmation?error=${encodeURIComponent(authErrorMessage(error.code))}`,
+    );
+  }
+
+  redirect(
+    `/login?message=${encodeURIComponent("인증 메일을 다시 보냈습니다. 받은편지함과 스팸함을 확인해 주세요.")}`,
+  );
+}
+
 export async function updatePassword(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const passwordConfirm = String(formData.get("passwordConfirm") ?? "");

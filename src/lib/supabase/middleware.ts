@@ -12,13 +12,16 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet, headers) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
           response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options),
+          );
+          Object.entries(headers).forEach(([key, value]) =>
+            response.headers.set(key, value),
           );
         },
       },
@@ -35,6 +38,10 @@ export async function updateSession(request: NextRequest) {
     response.cookies.getAll().forEach((cookie) => {
       redirectResponse.cookies.set(cookie);
     });
+    for (const header of ["cache-control", "expires", "pragma"]) {
+      const value = response.headers.get(header);
+      if (value) redirectResponse.headers.set(header, value);
+    }
     return redirectResponse;
   }
 
