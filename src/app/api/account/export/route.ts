@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { canExportLearningData } from "@/lib/data-export-access";
 
 export async function GET() {
   const supabase = await createClient();
@@ -10,13 +11,32 @@ export async function GET() {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [{ data: profile }, { data: subjects }, { data: notes }, { data: reviewLogs }, { data: subscription }] =
+  const { data: accessSubscription, error: accessError } = await supabase
+    .from("subscriptions")
+    .select("plan_id, status")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (accessError) {
+    return Response.json(
+      { error: "학습 데이터 내려받기 권한을 확인하지 못했습니다." },
+      { status: 500 },
+    );
+  }
+
+  if (!canExportLearningData(accessSubscription)) {
+    return Response.json(
+      { error: "유료 신청 후 운영자 승인이 필요한 기능입니다." },
+      { status: 403 },
+    );
+  }
+
+  const [{ data: profile }, { data: subjects }, { data: notes }, { data: reviewLogs }] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
       supabase.from("subjects").select("*").order("created_at"),
       supabase.from("notes").select("*").order("created_at"),
       supabase.from("review_logs").select("*").order("reviewed_at"),
-      supabase.from("subscriptions").select("*").eq("user_id", user.id).maybeSingle(),
     ]);
 
   const exportedAt = new Date().toISOString();
@@ -24,7 +44,7 @@ export async function GET() {
     {
       exported_at: exportedAt,
       account: { id: user.id, email: user.email, profile },
-      subscription,
+      subscription: accessSubscription,
       subjects: subjects ?? [],
       notes: notes ?? [],
       review_logs: reviewLogs ?? [],

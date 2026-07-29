@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { canExportLearningData } from "@/lib/data-export-access";
 import { requestAccountDeletion } from "./actions";
 
 export default async function SettingsPage({
@@ -15,7 +16,12 @@ export default async function SettingsPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: profile }, { data: deletionRequest }, { data: guardianLinks }] = await Promise.all([
+  const [
+    { data: profile },
+    { data: deletionRequest },
+    { data: guardianLinks },
+    { data: subscription },
+  ] = await Promise.all([
     supabase
       .from("profiles")
       .select(
@@ -36,7 +42,13 @@ export default async function SettingsPage({
       )
       .or(`child_user_id.eq.${user.id},guardian_user_id.eq.${user.id}`)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("subscriptions")
+      .select("plan_id, status")
+      .eq("user_id", user.id)
+      .maybeSingle(),
   ]);
+  const exportAllowed = canExportLearningData(subscription);
 
   return (
     <div className="space-y-8">
@@ -65,16 +77,30 @@ export default async function SettingsPage({
           </div>
         </dl>
         <div className="mt-5 flex flex-wrap gap-3">
-          <a
-            href="/api/account/export"
-            className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900"
-          >
-            내 데이터 내려받기
-          </a>
+          {exportAllowed ? (
+            <a
+              href="/api/account/export"
+              className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900"
+            >
+              내 학습 데이터 내려받기
+            </a>
+          ) : (
+            <span
+              aria-disabled="true"
+              className="cursor-not-allowed rounded-md border border-neutral-200 bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-400 dark:border-neutral-800 dark:bg-neutral-900"
+            >
+              내 학습 데이터 내려받기 · 승인 필요
+            </span>
+          )}
           <Link href="/billing" className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium">
             요금제 관리
           </Link>
         </div>
+        {!exportAllowed && (
+          <p className="mt-3 text-xs leading-5 text-amber-700 dark:text-amber-300">
+            유료 이용 신청과 결제 확인 후 운영자가 권한을 승인하면 내려받을 수 있습니다.
+          </p>
+        )}
       </section>
 
       <section className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">

@@ -455,7 +455,7 @@ export default async function AdminPage({
                 <SectionTitle
                   eyebrow="Members"
                   title="회원 관리"
-                  description="학습자와 보호자 계정 상태, 요금제를 관리합니다."
+                  description="학습자와 보호자 계정 상태, 요금제와 학습 데이터 내려받기 권한을 관리합니다."
                 />
                 <form className="flex w-full flex-wrap gap-2 lg:w-auto" action="/admin">
                   <label className="relative min-w-[220px] flex-1">
@@ -493,7 +493,7 @@ export default async function AdminPage({
                     <th className="px-4 py-4">구분</th>
                     <th className="px-4 py-4">보호자 동의</th>
                     <th className="px-4 py-4">계정 상태</th>
-                    <th className="px-4 py-4">요금제·구독</th>
+                    <th className="px-4 py-4">요금제·내려받기 권한</th>
                     <th className="px-6 py-4 text-right">가입일</th>
                   </tr>
                 </thead>
@@ -582,6 +582,21 @@ export default async function AdminPage({
                             {plan?.monthly_price_krw
                               ? `${formatWon(plan.monthly_price_krw)}/월`
                               : "무료"}
+                          </p>
+                          <p
+                            className={`mt-1 text-xs font-medium ${
+                              subscription?.plan_id !== "free" &&
+                              (subscription?.status === "active" ||
+                                subscription?.status === "trialing")
+                                ? "text-emerald-600"
+                                : "text-slate-400"
+                            }`}
+                          >
+                            {subscription?.plan_id !== "free" &&
+                            (subscription?.status === "active" ||
+                              subscription?.status === "trialing")
+                              ? "학습 데이터 내려받기 허용"
+                              : "학습 데이터 내려받기 차단"}
                           </p>
                         </td>
                         <td className="px-6 py-4 text-right text-xs text-slate-500">
