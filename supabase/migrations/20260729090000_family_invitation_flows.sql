@@ -49,7 +49,18 @@ create index if not exists family_invitations_pending_expiry_idx
   on public.family_invitations (expires_at)
   where status = 'pending';
 
+create index if not exists family_invitations_child_user_idx
+  on public.family_invitations (child_user_id)
+  where child_user_id is not null;
+
+create index if not exists family_invitations_guardian_user_idx
+  on public.family_invitations (guardian_user_id)
+  where guardian_user_id is not null;
+
+create index if not exists family_invitations_accepted_by_idx
+  on public.family_invitations (accepted_by)
+  where accepted_by is not null;
+
 alter table public.family_invitations enable row level security;
 revoke all on public.family_invitations from anon, authenticated;
 grant all on public.family_invitations to service_role;
-
