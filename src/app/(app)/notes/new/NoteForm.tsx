@@ -5,9 +5,11 @@ import { useFormStatus } from "react-dom";
 import type { Subject } from "@/lib/types";
 import { createNote, createNoteFromFile } from "../actions";
 import { createSubjectInline } from "../../subjects/actions";
+import ImageCropper, { compressImageFile } from "./ImageCropper";
 
 const fieldClass =
   "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50";
+const SAFE_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 type FileSelection = {
   file: File;
@@ -78,6 +80,9 @@ export default function NoteForm({
   const [solution, setSolution] = useState<FileSelection | null>(null);
   const [subjectOptions, setSubjectOptions] = useState(subjects);
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
+  const [cropSource, setCropSource] = useState<File | null>(null);
+  const [clientError, setClientError] = useState("");
+  const [isProcessingSolution, setIsProcessingSolution] = useState(false);
   const problemInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const solutionInputRef = useRef<HTMLInputElement>(null);
@@ -103,6 +108,32 @@ export default function NoteForm({
   ) {
     if (current?.previewUrl) URL.revokeObjectURL(current.previewUrl);
     setter(makeSelection(nextFile));
+  }
+
+  function setCanonicalProblemFile(file: File) {
+    if (!problemInputRef.current) return false;
+    try {
+      const transfer = new DataTransfer();
+      transfer.items.add(file);
+      problemInputRef.current.files = transfer.files;
+      if (problemInputRef.current.files?.[0] !== file) return false;
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
+      replaceSelection(file, problem, setProblem);
+      setClientError("");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function chooseProblemFile(file: File | null) {
+    if (!file) return;
+    setClientError("");
+    if (file.type.startsWith("image/")) {
+      setCropSource(file);
+      return;
+    }
+    setCanonicalProblemFile(file);
   }
 
   if (mode === "manual") {
@@ -156,10 +187,23 @@ export default function NoteForm({
   }
 
   return (
-    <form action={createNoteFromFile} className="space-y-5">
-      {error && (
+    <>
+    <form
+      action={createNoteFromFile}
+      className="space-y-5"
+      onSubmit={(event) => {
+        const totalBytes = (problem?.file.size ?? 0) + (solution?.file.size ?? 0);
+        if (totalBytes <= SAFE_UPLOAD_BYTES) return;
+        event.preventDefault();
+        setClientError(
+          "한 번에 전송할 파일이 너무 큽니다. PDF 용량을 줄이거나 학생 풀이 파일을 제외하고 다시 시도해 주세요.",
+        );
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }}
+    >
+      {(error || clientError) && (
         <div className="rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-sm font-medium text-red-600">
-          {error}
+          {clientError || error}
         </div>
       )}
 
@@ -189,12 +233,7 @@ export default function NoteForm({
             onDrop={(event) => {
               event.preventDefault();
               const dropped = event.dataTransfer.files?.[0] ?? null;
-              if (dropped && problemInputRef.current) {
-                const transfer = new DataTransfer();
-                transfer.items.add(dropped);
-                problemInputRef.current.files = transfer.files;
-                replaceSelection(dropped, problem, setProblem);
-              }
+              chooseProblemFile(dropped);
             }}
           >
             <input
@@ -205,7 +244,7 @@ export default function NoteForm({
               accept="image/jpeg,image/png,image/webp,application/pdf"
               onChange={(event) => {
                 if (cameraInputRef.current) cameraInputRef.current.value = "";
-                replaceSelection(event.target.files?.[0] ?? null, problem, setProblem);
+                chooseProblemFile(event.target.files?.[0] ?? null);
               }}
               className="sr-only"
             />
@@ -213,12 +252,11 @@ export default function NoteForm({
               ref={cameraInputRef}
               id="problem-camera"
               type="file"
-              name="cameraFile"
               accept="image/*"
               capture="environment"
               onChange={(event) => {
                 if (problemInputRef.current) problemInputRef.current.value = "";
-                replaceSelection(event.target.files?.[0] ?? null, problem, setProblem);
+                chooseProblemFile(event.target.files?.[0] ?? null);
               }}
               className="sr-only"
             />
@@ -232,10 +270,10 @@ export default function NoteForm({
                   <div className="flex shrink-0 items-center gap-3">
                     <button
                       type="button"
-                      onClick={() => cameraInputRef.current?.click()}
+                      onClick={() => setCropSource(problem.file)}
                       className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
                     >
-                      다시 촬영
+                      문제 영역 다시 자르기
                     </button>
                     <button
                       type="button"
@@ -320,11 +358,35 @@ export default function NoteForm({
               type="file"
               name="solutionFile"
               accept="image/jpeg,image/png,image/webp,application/pdf"
-              onChange={(event) =>
-                replaceSelection(event.target.files?.[0] ?? null, solution, setSolution)
-              }
+              onChange={async (event) => {
+                const selected = event.target.files?.[0] ?? null;
+                if (!selected) return;
+                if (!selected.type.startsWith("image/")) {
+                  replaceSelection(selected, solution, setSolution);
+                  return;
+                }
+                setIsProcessingSolution(true);
+                setClientError("");
+                try {
+                  const compressed = await compressImageFile(selected);
+                  const transfer = new DataTransfer();
+                  transfer.items.add(compressed);
+                  event.target.files = transfer.files;
+                  replaceSelection(compressed, solution, setSolution);
+                } catch {
+                  event.target.value = "";
+                  setClientError("학생 풀이 사진을 처리하지 못했습니다. JPG 또는 PNG 사진을 선택해 주세요.");
+                } finally {
+                  setIsProcessingSolution(false);
+                }
+              }}
               className="sr-only"
             />
+            {isProcessingSolution && (
+              <p className="mt-3 text-xs font-semibold text-indigo-600">
+                학생 풀이 사진을 업로드에 맞게 줄이는 중입니다...
+              </p>
+            )}
             {solution && (
               <div className="mt-3 flex items-center gap-3 rounded-xl bg-white px-3 py-3 text-xs text-slate-600">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-50 font-bold text-emerald-600">✓</span>
@@ -389,7 +451,7 @@ export default function NoteForm({
           </div>
 
           <div className="mt-7 space-y-4">
-            <SubmitButton ready={Boolean(problem)} />
+            <SubmitButton ready={Boolean(problem) && !cropSource && !isProcessingSolution} />
             <button
               type="button"
               onClick={() => setMode("manual")}
@@ -401,6 +463,25 @@ export default function NoteForm({
         </section>
       </div>
     </form>
+    {cropSource && (
+      <ImageCropper
+        file={cropSource}
+        onCancel={() => {
+          setCropSource(null);
+          if (cameraInputRef.current) cameraInputRef.current.value = "";
+          window.setTimeout(() => cameraInputRef.current?.click(), 0);
+        }}
+        onComplete={(croppedFile) => {
+          if (!setCanonicalProblemFile(croppedFile)) {
+            setClientError(
+              "이 브라우저에서는 편집한 사진을 첨부할 수 없습니다. 브라우저를 업데이트한 뒤 다시 시도해 주세요.",
+            );
+          }
+          setCropSource(null);
+        }}
+      />
+    )}
+    </>
   );
 }
 

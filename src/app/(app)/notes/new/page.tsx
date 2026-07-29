@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import type { Subject } from "@/lib/types";
 import NoteForm from "./NoteForm";
 
+export const maxDuration = 300;
+
 export default async function NewNotePage({
   searchParams,
 }: {
