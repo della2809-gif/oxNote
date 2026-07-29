@@ -57,7 +57,10 @@ export async function signUp(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const displayName = String(formData.get("displayName") ?? "").trim();
-  const dateOfBirth = String(formData.get("dateOfBirth") ?? "");
+  const birthYear = String(formData.get("birthYear") ?? "").trim();
+  const birthMonth = String(formData.get("birthMonth") ?? "").trim().padStart(2, "0");
+  const birthDay = String(formData.get("birthDay") ?? "").trim().padStart(2, "0");
+  const dateOfBirth = `${birthYear}-${birthMonth}-${birthDay}`;
   const countryCode = String(formData.get("countryCode") ?? "KR").toUpperCase();
   const agreedToTerms = formData.get("agreeTerms") === "on";
   const agreedToPrivacy = formData.get("agreePrivacy") === "on";
@@ -70,6 +73,9 @@ export async function signUp(formData: FormData) {
   if (
     !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)
     || Number.isNaN(parsedBirthDate.getTime())
+    || parsedBirthDate.getUTCFullYear() !== Number(birthYear)
+    || parsedBirthDate.getUTCMonth() + 1 !== Number(birthMonth)
+    || parsedBirthDate.getUTCDate() !== Number(birthDay)
     || parsedBirthDate > new Date()
   ) {
     redirect(`/signup?error=${encodeURIComponent("올바른 생년월일을 입력해 주세요.")}`);
