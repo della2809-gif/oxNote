@@ -76,6 +76,51 @@ export default async function SettingsPage({
       {error && <Notice tone="error">{error}</Notice>}
       {success && <Notice tone="success">{success}</Notice>}
 
+      <section aria-labelledby="settings-menu-title">
+        <div>
+          <h2 id="settings-menu-title" className="font-semibold">
+            설정 메뉴
+          </h2>
+          <p className="mt-1 text-sm text-neutral-500">
+            학습 과목과 이용 중인 요금제를 관리합니다.
+          </p>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <Link
+            href="/subjects"
+            className="group rounded-xl border border-neutral-200 bg-white p-5 transition hover:border-indigo-300 hover:shadow-sm dark:border-neutral-800 dark:bg-neutral-950 dark:hover:border-indigo-700"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="font-semibold">과목 관리</h3>
+                <p className="mt-1 text-sm leading-6 text-neutral-500">
+                  오답노트에서 사용할 과목을 추가하고 관리합니다.
+                </p>
+              </div>
+              <span className="text-xl text-neutral-400 transition group-hover:translate-x-1 group-hover:text-indigo-600">
+                →
+              </span>
+            </div>
+          </Link>
+          <Link
+            href="/billing"
+            className="group rounded-xl border border-neutral-200 bg-white p-5 transition hover:border-indigo-300 hover:shadow-sm dark:border-neutral-800 dark:bg-neutral-950 dark:hover:border-indigo-700"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="font-semibold">요금제와 사용량</h3>
+                <p className="mt-1 text-sm leading-6 text-neutral-500">
+                  현재 요금제와 AI 분석 사용량을 확인합니다.
+                </p>
+              </div>
+              <span className="text-xl text-neutral-400 transition group-hover:translate-x-1 group-hover:text-indigo-600">
+                →
+              </span>
+            </div>
+          </Link>
+        </div>
+      </section>
+
       <section className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
         <h2 className="font-semibold">내 계정</h2>
         <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">

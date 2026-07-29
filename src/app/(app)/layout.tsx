@@ -7,8 +7,6 @@ const NAV_LINKS = [
   { href: "/dashboard", label: "대시보드" },
   { href: "/notes", label: "오답노트" },
   { href: "/review", label: "복습" },
-  { href: "/subjects", label: "과목" },
-  { href: "/billing", label: "요금제" },
   { href: "/settings", label: "설정" },
 ];
 
