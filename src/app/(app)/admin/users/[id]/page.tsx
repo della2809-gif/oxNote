@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import {
   resetManagedUserPassword,
   updateGuardianLink,
@@ -25,7 +24,6 @@ export default async function ManagedUserPage({
   if (!user) redirect("/login");
   if (user.app_metadata?.role !== "admin") redirect("/dashboard");
 
-  const admin = createAdminClient();
   const [
     { data: profile },
     { data: subscription },
@@ -34,12 +32,12 @@ export default async function ManagedUserPage({
     { count: reviewCount },
     { data: guardianLinks },
   ] = await Promise.all([
-    admin.from("profiles").select("id, email, display_name, account_status, date_of_birth, country_code, guardian_required, guardian_consent_status, created_at").eq("id", id).maybeSingle(),
-    admin.from("subscriptions").select("plan_id, status, current_period_start, current_period_end").eq("user_id", id).maybeSingle(),
-    admin.from("plans").select("id, name").eq("is_active", true).order("monthly_price_krw"),
-    admin.from("notes").select("id", { count: "exact", head: true }).eq("user_id", id),
-    admin.from("review_logs").select("id", { count: "exact", head: true }).eq("user_id", id),
-    admin.from("guardian_links").select("id, child_user_id, guardian_user_id, relationship, status, can_view_learning, can_manage_account, can_manage_billing").or(`child_user_id.eq.${id},guardian_user_id.eq.${id}`),
+    supabase.from("profiles").select("id, email, display_name, account_status, date_of_birth, country_code, guardian_required, guardian_consent_status, created_at").eq("id", id).maybeSingle(),
+    supabase.from("subscriptions").select("plan_id, status, current_period_start, current_period_end").eq("user_id", id).maybeSingle(),
+    supabase.from("plans").select("id, name").eq("is_active", true).order("monthly_price_krw"),
+    supabase.from("notes").select("id", { count: "exact", head: true }).eq("user_id", id),
+    supabase.from("review_logs").select("id", { count: "exact", head: true }).eq("user_id", id),
+    supabase.from("guardian_links").select("id, child_user_id, guardian_user_id, relationship, status, can_view_learning, can_manage_account, can_manage_billing").or(`child_user_id.eq.${id},guardian_user_id.eq.${id}`),
   ]);
   if (!profile) notFound();
 
