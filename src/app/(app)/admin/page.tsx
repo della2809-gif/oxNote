@@ -457,7 +457,14 @@ export default async function AdminPage({
                   title="회원 관리"
                   description="학습자와 보호자 계정 상태, 요금제와 학습 데이터 내려받기 권한을 관리합니다."
                 />
-                <form className="flex w-full flex-wrap gap-2 lg:w-auto" action="/admin">
+                <div className="flex w-full flex-wrap items-center justify-end gap-2 lg:w-auto">
+                  <Link
+                    href="/admin/users/new"
+                    className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-100"
+                  >
+                    + 회원 추가
+                  </Link>
+                  <form className="flex min-w-0 flex-1 flex-wrap gap-2 lg:flex-none" action="/admin">
                   <label className="relative min-w-[220px] flex-1">
                     <span className="sr-only">회원 검색</span>
                     <input
@@ -481,7 +488,8 @@ export default async function AdminPage({
                   <button className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500">
                     검색
                   </button>
-                </form>
+                  </form>
+                </div>
               </div>
             </div>
 
@@ -495,6 +503,7 @@ export default async function AdminPage({
                     <th className="px-4 py-4">계정 상태</th>
                     <th className="px-4 py-4">요금제·내려받기 권한</th>
                     <th className="px-6 py-4 text-right">가입일</th>
+                    <th className="px-6 py-4 text-right">관리</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -611,6 +620,14 @@ export default async function AdminPage({
                         </td>
                         <td className="px-6 py-4 text-right text-xs text-slate-500">
                           {formatDate(profile.created_at)}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <Link
+                            href={`/admin/users/${profile.id}`}
+                            className="inline-flex rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-50"
+                          >
+                            상세 관리
+                          </Link>
                         </td>
                       </tr>
                     );
