@@ -42,15 +42,19 @@ function publicSiteUrl() {
 export async function signIn(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const requestedNext = String(formData.get("next") ?? "");
+  const next = requestedNext.startsWith("/") && !requestedNext.startsWith("//")
+    ? requestedNext
+    : "/dashboard";
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    redirect(`/login?error=${encodeURIComponent(authErrorMessage(error.code))}`);
+    redirect(`/login?error=${encodeURIComponent(authErrorMessage(error.code))}&next=${encodeURIComponent(next)}`);
   }
 
-  redirect("/dashboard");
+  redirect(next);
 }
 
 export async function signUp(formData: FormData) {
@@ -64,6 +68,10 @@ export async function signUp(formData: FormData) {
   const countryCode = String(formData.get("countryCode") ?? "KR").toUpperCase();
   const agreedToTerms = formData.get("agreeTerms") === "on";
   const agreedToPrivacy = formData.get("agreePrivacy") === "on";
+  const requestedNext = String(formData.get("next") ?? "");
+  const next = requestedNext.startsWith("/") && !requestedNext.startsWith("//")
+    ? requestedNext
+    : "/dashboard";
 
   if (!agreedToTerms || !agreedToPrivacy) {
     redirect(`/signup?error=${encodeURIComponent("이용약관과 개인정보 처리방침에 동의해 주세요.")}`);
@@ -90,7 +98,7 @@ export async function signUp(formData: FormData) {
     email,
     password,
     options: {
-      emailRedirectTo: `${publicSiteUrl()}/auth/callback?next=/dashboard`,
+      emailRedirectTo: `${publicSiteUrl()}/auth/callback?next=${encodeURIComponent(next)}`,
       data: {
         display_name: displayName,
         date_of_birth: dateOfBirth,
@@ -115,11 +123,11 @@ export async function signUp(formData: FormData) {
 
   if (!data.session) {
     redirect(
-      `/login?message=${encodeURIComponent("회원가입 확인 메일을 보냈습니다. 이메일 인증 후 로그인해 주세요.")}`,
+      `/login?message=${encodeURIComponent("회원가입 확인 메일을 보냈습니다. 이메일 인증 후 로그인해 주세요.")}&next=${encodeURIComponent(next)}`,
     );
   }
 
-  redirect("/dashboard");
+  redirect(next);
 }
 
 export async function requestPasswordReset(formData: FormData) {

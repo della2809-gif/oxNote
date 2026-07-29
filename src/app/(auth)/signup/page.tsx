@@ -4,13 +4,15 @@ import { signUp } from "../actions";
 export default async function SignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, next } = await searchParams;
+  const safeNext = next?.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
 
   return (
     <form action={signUp} className="space-y-4 rounded-xl border border-neutral-200 p-6 dark:border-neutral-800">
       <h1 className="text-lg font-semibold">회원가입</h1>
+      <input type="hidden" name="next" value={safeNext} />
 
       {error && (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950 dark:text-red-400">
@@ -147,7 +149,7 @@ export default async function SignupPage({
 
       <p className="text-center text-sm text-neutral-500">
         이미 계정이 있으신가요?{" "}
-        <Link href="/login" className="font-medium text-neutral-900 underline dark:text-white">
+        <Link href={`/login?next=${encodeURIComponent(safeNext)}`} className="font-medium text-neutral-900 underline dark:text-white">
           로그인
         </Link>
       </p>

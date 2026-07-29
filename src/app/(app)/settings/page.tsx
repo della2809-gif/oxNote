@@ -2,14 +2,20 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canExportLearningData } from "@/lib/data-export-access";
-import { requestAccountDeletion } from "./actions";
+import { createFamilyInvitation, requestAccountDeletion } from "./actions";
 
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; success?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    success?: string;
+    invite?: string;
+    channel?: string;
+    contact?: string;
+  }>;
 }) {
-  const { error, success } = await searchParams;
+  const { error, success, invite, channel, contact } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -75,6 +81,37 @@ export default async function SettingsPage({
 
       {error && <Notice tone="error">{error}</Notice>}
       {success && <Notice tone="success">{success}</Notice>}
+      {invite && (
+        <section className="rounded-xl border border-indigo-200 bg-indigo-50 p-5 dark:border-indigo-900 dark:bg-indigo-950/40">
+          <h2 className="font-semibold text-indigo-950 dark:text-indigo-100">초대 링크가 준비되었습니다</h2>
+          <p className="mt-2 break-all rounded-lg bg-white p-3 text-sm text-indigo-800 dark:bg-neutral-950 dark:text-indigo-200">
+            {invite}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a
+              href={
+                channel === "sms"
+                  ? `sms:${encodeURIComponent(contact ?? "")}?body=${encodeURIComponent(`xonote 보호자·자녀 연결 초대입니다.\n${invite}`)}`
+                  : `mailto:${encodeURIComponent(contact ?? "")}?subject=${encodeURIComponent("xonote 보호자·자녀 연결 초대")}&body=${encodeURIComponent(`아래 링크를 열어 로그인 또는 회원가입 후 연결을 승인해 주세요.\n\n${invite}`)}`
+              }
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+            >
+              {channel === "sms" ? "문자 앱으로 보내기" : "이메일 앱으로 보내기"}
+            </a>
+            <a
+              href={invite}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg border border-indigo-300 px-4 py-2 text-sm font-semibold text-indigo-700 dark:border-indigo-700 dark:text-indigo-200"
+            >
+              초대 화면 미리보기
+            </a>
+          </div>
+          <p className="mt-3 text-xs text-indigo-700 dark:text-indigo-300">
+            링크는 7일 동안 한 번만 사용할 수 있습니다. 초대 대상에게만 전달해 주세요.
+          </p>
+        </section>
+      )}
 
       <section aria-labelledby="settings-menu-title">
         <div>
@@ -242,6 +279,66 @@ export default async function SettingsPage({
             </p>
           )}
         </div>
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          {profile?.guardian_required && (
+            <form action={createFamilyInvitation} className="space-y-4 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+              <input type="hidden" name="direction" value="child_invites_guardian" />
+              <div>
+                <h3 className="font-semibold">보호자 초대</h3>
+                <p className="mt-1 text-xs leading-5 text-neutral-500">
+                  보호자에게 이메일이나 문자로 승인 링크를 보냅니다.
+                </p>
+              </div>
+              <InviteContactFields />
+              <label className="block text-sm">
+                <span className="font-medium">관계</span>
+                <select name="relationship" className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900">
+                  <option value="parent">부모</option>
+                  <option value="legal_guardian">법정대리인</option>
+                  <option value="other">기타 보호자</option>
+                </select>
+              </label>
+              <button className="w-full rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-neutral-900">
+                보호자 초대 링크 만들기
+              </button>
+            </form>
+          )}
+
+          {!profile?.guardian_required && (
+            <form action={createFamilyInvitation} className="space-y-4 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+              <input type="hidden" name="direction" value="guardian_invites_child" />
+              <div>
+                <h3 className="font-semibold">자녀 연결 또는 계정 생성</h3>
+                <p className="mt-1 text-xs leading-5 text-neutral-500">
+                  기존 자녀에게 연결 링크를 보내거나, 이메일 초대로 새 자녀 계정을 만듭니다.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block text-sm">
+                  <span className="font-medium">자녀 이름</span>
+                  <input name="childName" required className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900" />
+                </label>
+                <label className="block text-sm">
+                  <span className="font-medium">자녀 생년월일</span>
+                  <input name="childDateOfBirth" type="date" required max={new Date().toISOString().slice(0, 10)} className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900" />
+                </label>
+              </div>
+              <InviteContactFields />
+              <label className="flex items-start gap-2 rounded-lg bg-neutral-50 p-3 text-sm dark:bg-neutral-900">
+                <input name="createChildAccount" type="checkbox" className="mt-1" />
+                <span>
+                  이메일로 새 자녀 계정 생성 초대 보내기
+                  <small className="mt-1 block text-neutral-500">이미 가입된 자녀라면 체크하지 마세요. 문자 초대에서는 사용할 수 없습니다.</small>
+                </span>
+              </label>
+              <input type="hidden" name="relationship" value="parent" />
+              <button className="w-full rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-neutral-900">
+                자녀 초대 시작하기
+              </button>
+            </form>
+          )}
+        </div>
       </section>
 
       <section className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
@@ -285,6 +382,31 @@ export default async function SettingsPage({
           </form>
         )}
       </section>
+    </div>
+  );
+}
+
+function InviteContactFields() {
+  return (
+    <div className="space-y-3">
+      <label className="block text-sm">
+        <span className="font-medium">초대 방법</span>
+        <select name="channel" defaultValue="email" className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900">
+          <option value="email">이메일</option>
+          <option value="sms">문자</option>
+        </select>
+      </label>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block text-sm">
+          <span className="font-medium">이메일</span>
+          <input name="email" type="email" placeholder="guardian@example.com" className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900" />
+        </label>
+        <label className="block text-sm">
+          <span className="font-medium">휴대전화</span>
+          <input name="phone" type="tel" inputMode="tel" placeholder="+821012345678" className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900" />
+        </label>
+      </div>
+      <p className="text-xs text-neutral-500">선택한 초대 방법에 해당하는 연락처만 입력해 주세요.</p>
     </div>
   );
 }
