@@ -12,7 +12,11 @@ const NAV_LINKS = [
   { href: "/settings", label: "설정" },
 ];
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -22,19 +26,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const isAdmin = user.app_metadata?.role === "admin";
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
-      <header className="border-b border-neutral-200 dark:border-neutral-800">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+    <div className="min-h-screen bg-slate-50 dark:bg-neutral-950">
+      <header className="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/90">
+        <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex flex-wrap items-center gap-5">
-            <Link href="/dashboard" className="text-lg font-bold tracking-tight">
+            <Link
+              href="/dashboard"
+              className="text-lg font-bold tracking-tight text-slate-950 dark:text-white"
+            >
               xonote
             </Link>
-            <nav className="flex gap-4 text-sm">
+            <nav className="flex flex-wrap gap-4 text-sm">
               {NAV_LINKS.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+                  className="text-slate-600 transition hover:text-slate-950 dark:text-neutral-400 dark:hover:text-white"
                 >
                   {link.label}
                 </Link>
@@ -42,25 +49,29 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               {isAdmin && (
                 <Link
                   href="/admin"
-                  className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+                  className="font-semibold text-indigo-600 transition hover:text-indigo-500 dark:text-indigo-400"
                 >
-                  관리자
+                  운영자 콘솔
                 </Link>
               )}
             </nav>
           </div>
           <form action={signOut} className="flex items-center gap-3">
-            <span className="text-sm text-neutral-500">{user.email}</span>
+            <span className="hidden max-w-[220px] truncate text-sm text-slate-500 sm:block">
+              {user.email}
+            </span>
             <button
               type="submit"
-              className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900"
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
             >
               로그아웃
             </button>
           </form>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+      <main className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 sm:py-8">
+        {children}
+      </main>
     </div>
   );
 }
