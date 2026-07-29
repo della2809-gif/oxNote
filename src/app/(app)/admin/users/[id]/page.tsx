@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
+  createGuardianLink,
+  deleteGuardianLink,
+  deleteManagedUser,
   resetManagedUserPassword,
   updateGuardianLink,
   updateManagedUser,
@@ -13,16 +17,17 @@ export default async function ManagedUserPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; success?: string }>;
+  searchParams: Promise<{ error?: string; success?: string; memberSearch?: string }>;
 }) {
   const { id } = await params;
-  const { error, success } = await searchParams;
+  const { error, success, memberSearch = "" } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
   if (user.app_metadata?.role !== "admin") redirect("/dashboard");
+  const admin = createAdminClient();
 
   const [
     { data: profile },
@@ -40,6 +45,62 @@ export default async function ManagedUserPage({
     supabase.from("guardian_links").select("id, child_user_id, guardian_user_id, relationship, status, can_view_learning, can_manage_account, can_manage_billing").or(`child_user_id.eq.${id},guardian_user_id.eq.${id}`),
   ]);
   if (!profile) notFound();
+
+  const linkedUserIds = new Set(
+    guardianLinks?.map((link) =>
+      link.child_user_id === id ? link.guardian_user_id : link.child_user_id,
+    ) ?? [],
+  );
+  const relationUserIds = [...linkedUserIds];
+  const { data: relationProfiles } = relationUserIds.length
+    ? await admin
+        .from("profiles")
+        .select("id, email, display_name")
+        .in("id", relationUserIds)
+    : { data: [] };
+  const relationProfilesById = new Map(
+    relationProfiles?.map((item) => [item.id, item]) ?? [],
+  );
+
+  const normalizedSearch = memberSearch.trim().toLowerCase();
+  let memberCandidates: Array<{
+    id: string;
+    email: string;
+    displayName: string;
+    phone: string;
+    guardianRequired: boolean;
+  }> = [];
+
+  if (normalizedSearch.length >= 2) {
+    const [{ data: searchableProfiles }, { data: authUsers }] = await Promise.all([
+      admin
+        .from("profiles")
+        .select("id, email, display_name, guardian_required")
+        .limit(1000),
+      admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+    ]);
+    const authById = new Map(authUsers?.users.map((item) => [item.id, item]) ?? []);
+
+    memberCandidates = (searchableProfiles ?? [])
+      .filter((candidate) => candidate.id !== id && !linkedUserIds.has(candidate.id))
+      .map((candidate) => {
+        const authUser = authById.get(candidate.id);
+        return {
+          id: candidate.id,
+          email: candidate.email ?? authUser?.email ?? "",
+          displayName: candidate.display_name ?? "이름 미등록",
+          phone: authUser?.phone ?? "",
+          guardianRequired: Boolean(candidate.guardian_required),
+        };
+      })
+      .filter((candidate) =>
+        [candidate.displayName, candidate.email, candidate.phone]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedSearch),
+      )
+      .slice(0, 20);
+  }
 
   return (
     <div className="space-y-6">
@@ -121,12 +182,75 @@ export default async function ManagedUserPage({
           </form>
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-bold">보호자 연결</h2>
+            <form method="get" className="mt-4 flex gap-2">
+              <input
+                name="memberSearch"
+                defaultValue={memberSearch}
+                placeholder="이름·이메일·연락처 검색"
+                className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-400"
+              />
+              <button className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white">
+                검색
+              </button>
+            </form>
+            {normalizedSearch.length > 0 && normalizedSearch.length < 2 && (
+              <p className="mt-2 text-xs text-amber-700">검색어를 2자 이상 입력해 주세요.</p>
+            )}
+            {normalizedSearch.length >= 2 && (
+              <div className="mt-3 space-y-2">
+                {memberCandidates.map((candidate) => (
+                  <form
+                    key={candidate.id}
+                    action={createGuardianLink}
+                    className="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-3"
+                  >
+                    <input type="hidden" name="userId" value={profile.id} />
+                    <input type="hidden" name="relatedUserId" value={candidate.id} />
+                    <div>
+                      <p className="font-semibold text-slate-900">{candidate.displayName}</p>
+                      <p className="break-all text-xs text-slate-500">{candidate.email}</p>
+                      {candidate.phone && <p className="text-xs text-slate-500">{candidate.phone}</p>}
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <select name="relatedRole" defaultValue={candidate.guardianRequired ? "child" : "guardian"} className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs">
+                        <option value="guardian">이 회원을 보호자로 연결</option>
+                        <option value="child">이 회원을 자녀로 연결</option>
+                      </select>
+                      <select name="relationship" defaultValue="parent" className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs">
+                        <option value="parent">부모</option>
+                        <option value="legal_guardian">법정대리인</option>
+                        <option value="other">기타 보호자</option>
+                      </select>
+                    </div>
+                    <button className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white">
+                      선택 회원 연결
+                    </button>
+                  </form>
+                ))}
+                {!memberCandidates.length && (
+                  <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
+                    일치하는 미연결 회원이 없습니다.
+                  </p>
+                )}
+              </div>
+            )}
             <div className="mt-3 space-y-2 text-sm">
               {guardianLinks?.map((link) => (
                 <form key={link.id} action={updateGuardianLink} className="space-y-3 rounded-xl bg-slate-50 p-3">
                   <input type="hidden" name="userId" value={profile.id} />
                   <input type="hidden" name="linkId" value={link.id} />
-                  <strong>{link.child_user_id === id ? "연결된 보호자" : "관리 중인 자녀"}</strong>
+                  <div>
+                    <strong>{link.child_user_id === id ? "연결된 보호자" : "관리 중인 자녀"}</strong>
+                    {(() => {
+                      const relatedId = link.child_user_id === id ? link.guardian_user_id : link.child_user_id;
+                      const related = relationProfilesById.get(relatedId);
+                      return (
+                        <p className="mt-1 text-xs text-slate-500">
+                          {related?.display_name ?? "이름 미등록"} · {related?.email ?? relatedId}
+                        </p>
+                      );
+                    })()}
+                  </div>
                   <div className="grid gap-2 sm:grid-cols-2">
                     <select name="relationship" defaultValue={link.relationship} className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs">
                       <option value="parent">부모</option>
@@ -145,11 +269,34 @@ export default async function ManagedUserPage({
                     <label className="flex items-center gap-2"><input name="canManageAccount" type="checkbox" defaultChecked={link.can_manage_account} /> 계정 관리</label>
                     <label className="flex items-center gap-2"><input name="canManageBilling" type="checkbox" defaultChecked={link.can_manage_billing} /> 결제 관리</label>
                   </div>
-                  <button className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-100">연결 권한 저장</button>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-100">연결 권한 저장</button>
+                    <button formAction={deleteGuardianLink} className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50">연결 해제</button>
+                  </div>
                 </form>
               ))}
               {!guardianLinks?.length && <p className="text-slate-500">연결된 보호자 또는 자녀가 없습니다.</p>}
             </div>
+          </section>
+          <section className="rounded-2xl border border-red-200 bg-red-50/40 p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-red-700">회원 탈퇴·삭제</h2>
+            <p className="mt-2 text-xs leading-5 text-red-700">
+              회원 계정, 오답노트, 복습 기록과 가족 연결이 삭제되며 복구할 수 없습니다.
+              안전 확인을 위해 아래에 회원 이메일을 입력해 주세요.
+            </p>
+            <form action={deleteManagedUser} className="mt-4 space-y-3">
+              <input type="hidden" name="userId" value={profile.id} />
+              <input
+                name="confirmationEmail"
+                type="email"
+                required
+                placeholder={profile.email ?? "회원 이메일"}
+                className="w-full rounded-xl border border-red-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-red-400"
+              />
+              <button className="w-full rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-500">
+                회원 영구 삭제
+              </button>
+            </form>
           </section>
         </div>
       </div>
