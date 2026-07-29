@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Note } from "@/lib/types";
 import { submitReview } from "../notes/actions";
+import OriginalSourceToggle from "./OriginalSourceToggle";
 
 export default async function ReviewPage() {
   const supabase = await createClient();
@@ -16,7 +17,7 @@ export default async function ReviewPage() {
   const notes = (dueNotes as Note[] | null) ?? [];
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
       <div>
         <h1 className="text-xl font-semibold">오늘의 복습</h1>
         <p className="text-sm text-neutral-500">{notes.length}개의 오답이 복습 대기 중입니다.</p>
@@ -31,8 +32,18 @@ export default async function ReviewPage() {
       <ul className="space-y-4">
         {notes.map((note) => (
           <li key={note.id} className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
-            <p className="mb-2 text-xs text-neutral-500">Box {note.box_level} / 5</p>
-            <p className="whitespace-pre-wrap text-sm font-medium">{note.question}</p>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <p className="text-xs text-neutral-500">Box {note.box_level} / 5</p>
+              {note.source && <p className="text-xs text-neutral-500">{note.source}</p>}
+            </div>
+
+            <div className="space-y-4">
+              <p className="whitespace-pre-wrap break-words text-base font-medium leading-7">
+                {note.question}
+              </p>
+            </div>
+
+            {note.source_file_url && <OriginalSourceToggle noteId={note.id} />}
 
             <details className="mt-3 rounded-md bg-neutral-50 p-3 text-sm dark:bg-neutral-900">
               <summary className="cursor-pointer font-medium text-neutral-600 dark:text-neutral-300">

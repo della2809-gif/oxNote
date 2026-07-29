@@ -2,7 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Note, NoteAiDetails, Subject } from "@/lib/types";
-import { deleteNote, updateNoteMistakeReason } from "../actions";
+import {
+  deleteNote,
+  updateNoteExtractedContent,
+  updateNoteMistakeReason,
+} from "../actions";
 
 function asDetails(value: unknown): NoteAiDetails | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -138,6 +142,78 @@ export default async function NoteDetailPage({
           </form>
         </div>
       </div>
+
+      <section className="rounded-3xl border border-indigo-100 bg-indigo-50/50 p-6 shadow-sm sm:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-bold text-indigo-600">AI 추출 내용 확인</p>
+            <h2 className="mt-2 text-2xl font-bold">저장된 문제와 정답을 확인해 주세요</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              사진이나 PDF에서 잘못 읽힌 글자, 숫자, 수식 또는 선택지를 직접 고칠 수 있습니다.
+              수정한 내용이 오답노트와 복습에 사용됩니다.
+            </p>
+          </div>
+        </div>
+
+        <form action={updateNoteExtractedContent} className="mt-6 space-y-5">
+          <input type="hidden" name="id" value={typedNote.id} />
+          <label className="block space-y-2 text-sm font-bold text-slate-700">
+            <span>문제 전문</span>
+            <textarea
+              name="question"
+              required
+              maxLength={12000}
+              rows={8}
+              defaultValue={typedNote.question}
+              className="w-full resize-y rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-medium leading-7 text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+            />
+          </label>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="block space-y-2 text-sm font-bold text-slate-700">
+              <span>내가 쓴 답 <span className="font-normal text-slate-400">(선택)</span></span>
+              <textarea
+                name="myAnswer"
+                maxLength={5000}
+                rows={4}
+                defaultValue={typedNote.my_answer ?? ""}
+                className="w-full resize-y rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm leading-7 text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+              />
+            </label>
+            <label className="block space-y-2 text-sm font-bold text-slate-700">
+              <span>정답</span>
+              <textarea
+                name="correctAnswer"
+                required
+                maxLength={5000}
+                rows={4}
+                defaultValue={typedNote.correct_answer}
+                className="w-full resize-y rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm leading-7 text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+              />
+            </label>
+          </div>
+
+          <label className="block space-y-2 text-sm font-bold text-slate-700">
+            <span>시험·교재 출처 <span className="font-normal text-slate-400">(선택)</span></span>
+            <input
+              name="source"
+              maxLength={500}
+              defaultValue={typedNote.source ?? ""}
+              placeholder="예: 중2 영어 중간고사"
+              className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+            />
+          </label>
+
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-700"
+            >
+              수정 내용 저장
+            </button>
+          </div>
+        </form>
+      </section>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_1.05fr]">
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">

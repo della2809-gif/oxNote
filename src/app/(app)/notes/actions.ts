@@ -17,6 +17,7 @@ const ACCEPTED_FILE_TYPES = ["image/jpeg", "image/png", "image/webp", "applicati
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
 const MAX_QUESTION_LENGTH = 12_000;
 const MAX_ANSWER_LENGTH = 5_000;
+const MAX_SOURCE_LENGTH = 500;
 const MAX_MISTAKE_REASON_LENGTH = 2_000;
 const SUBJECT_COLORS = [
   "#6366f1",
@@ -404,6 +405,48 @@ export async function updateNoteMistakeReason(formData: FormData) {
 
   revalidatePath(`/notes/${id}`);
   revalidatePath("/notes");
+}
+
+export async function updateNoteExtractedContent(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const question = String(formData.get("question") ?? "").trim();
+  const correctAnswer = String(formData.get("correctAnswer") ?? "").trim();
+  const myAnswer = String(formData.get("myAnswer") ?? "").trim();
+  const source = String(formData.get("source") ?? "").trim();
+
+  if (
+    !id ||
+    !question ||
+    !correctAnswer ||
+    question.length > MAX_QUESTION_LENGTH ||
+    correctAnswer.length > MAX_ANSWER_LENGTH ||
+    myAnswer.length > MAX_ANSWER_LENGTH ||
+    source.length > MAX_SOURCE_LENGTH
+  ) {
+    return;
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  await supabase
+    .from("notes")
+    .update({
+      question,
+      correct_answer: correctAnswer,
+      my_answer: myAnswer || null,
+      source: source || null,
+    })
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  revalidatePath(`/notes/${id}`);
+  revalidatePath("/notes");
+  revalidatePath("/review");
+  revalidatePath("/dashboard");
 }
 
 export async function submitReview(formData: FormData) {
