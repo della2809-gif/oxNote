@@ -23,6 +23,30 @@ const MAX_ANSWER_LENGTH = 5_000;
 const MAX_SOURCE_LENGTH = 500;
 const MAX_MISTAKE_REASON_LENGTH = 2_000;
 const LEARNING_STATUSES = ["incorrect", "correct_review"] as const;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MAX_BULK_NOTES = 100;
+
+function selectedNoteIds(formData: FormData) {
+  return Array.from(
+    new Set(
+      formData
+        .getAll("ids")
+        .map((value) => String(value))
+        .filter((value) => UUID_PATTERN.test(value)),
+    ),
+  ).slice(0, MAX_BULK_NOTES);
+}
+
+function notesReturnTo(formData: FormData) {
+  const value = String(formData.get("returnTo") ?? "");
+  return value === "/notes" || value.startsWith("/notes?") ? value : "/notes";
+}
+
+function redirectNotesMessage(returnTo: string, type: "error" | "success", message: string): never {
+  const url = new URL(returnTo, "https://xonote.local");
+  url.searchParams.set(type, message);
+  redirect(`${url.pathname}${url.search}`);
+}
 
 function readLearningStatus(formData: FormData) {
   const value = String(formData.get("learningStatus") ?? "");
@@ -415,6 +439,120 @@ export async function deleteNote(formData: FormData) {
   revalidatePath("/notes");
   revalidatePath("/dashboard");
   redirect("/notes");
+}
+
+export async function moveSelectedNotes(formData: FormData) {
+  const ids = selectedNoteIds(formData);
+  const returnTo = notesReturnTo(formData);
+  const targetSubjectValue = String(formData.get("targetSubjectId") ?? "");
+  if (ids.length === 0) {
+    redirectNotesMessage(returnTo, "error", "과목을 이동할 오답을 선택해 주세요.");
+  }
+  if (!targetSubjectValue) {
+    redirectNotesMessage(returnTo, "error", "이동할 과목을 선택해 주세요.");
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  let targetSubjectId: string | null = null;
+  let targetSubjectName = "과목 없음";
+  if (targetSubjectValue !== "__none__") {
+    if (!UUID_PATTERN.test(targetSubjectValue)) {
+      redirectNotesMessage(returnTo, "error", "올바른 과목을 선택해 주세요.");
+    }
+    const { data: subject } = await supabase
+      .from("subjects")
+      .select("id, name")
+      .eq("id", targetSubjectValue)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!subject) {
+      redirectNotesMessage(returnTo, "error", "이동할 과목을 확인할 수 없습니다.");
+    }
+    targetSubjectId = subject.id;
+    targetSubjectName = subject.name;
+  }
+
+  const { data: ownedNotes, error: selectError } = await supabase
+    .from("notes")
+    .select("id")
+    .eq("user_id", user.id)
+    .in("id", ids);
+  if (selectError || ownedNotes?.length !== ids.length) {
+    redirectNotesMessage(returnTo, "error", "선택한 오답 중 이동할 수 없는 항목이 있습니다.");
+  }
+
+  const { data: movedNotes, error: updateError } = await supabase
+    .from("notes")
+    .update({ subject_id: targetSubjectId })
+    .eq("user_id", user.id)
+    .in("id", ids)
+    .select("id");
+  if (updateError || movedNotes?.length !== ids.length) {
+    redirectNotesMessage(returnTo, "error", "선택한 오답의 과목을 이동하지 못했습니다.");
+  }
+
+  revalidatePath("/notes");
+  revalidatePath("/review");
+  revalidatePath("/dashboard");
+  redirectNotesMessage(
+    returnTo,
+    "success",
+    `${ids.length}개의 오답을 '${targetSubjectName}'으로 이동했습니다.`,
+  );
+}
+
+export async function deleteSelectedNotes(formData: FormData) {
+  const ids = selectedNoteIds(formData);
+  const returnTo = notesReturnTo(formData);
+  if (ids.length === 0) {
+    redirectNotesMessage(returnTo, "error", "삭제할 오답을 선택해 주세요.");
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: notes, error: selectError } = await supabase
+    .from("notes")
+    .select("id, source_file_url, student_solution_file_url")
+    .eq("user_id", user.id)
+    .in("id", ids);
+  if (selectError || notes?.length !== ids.length) {
+    redirectNotesMessage(returnTo, "error", "선택한 오답 중 삭제할 수 없는 항목이 있습니다.");
+  }
+
+  const { data: deletedNotes, error: deleteError } = await supabase
+    .from("notes")
+    .delete()
+    .eq("user_id", user.id)
+    .in("id", ids)
+    .select("id");
+  if (deleteError || deletedNotes?.length !== ids.length) {
+    redirectNotesMessage(returnTo, "error", "선택한 오답을 삭제하지 못했습니다.");
+  }
+
+  const filesToRemove = Array.from(
+    new Set(
+      (notes ?? [])
+        .flatMap((note) => [note.source_file_url, note.student_solution_file_url])
+        .filter((path): path is string => Boolean(path)),
+    ),
+  );
+  if (filesToRemove.length > 0) {
+    await supabase.storage.from("note-files").remove(filesToRemove);
+  }
+
+  revalidatePath("/notes");
+  revalidatePath("/review");
+  revalidatePath("/dashboard");
+  redirectNotesMessage(returnTo, "success", `${ids.length}개의 오답을 삭제했습니다.`);
 }
 
 export async function updateNoteMistakeReason(formData: FormData) {

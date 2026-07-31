@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { Note, NoteAiDetails, Subject } from "@/lib/types";
+import { BulkNotesForm } from "./BulkNotesForm";
 
 type ClassificationKey = "unit" | "source" | "type" | "concept" | "reason";
 
@@ -85,6 +86,8 @@ export default async function NotesPage({
     classification?: string;
     value?: string;
     q?: string;
+    error?: string;
+    success?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -148,6 +151,17 @@ export default async function NotesPage({
           + 새 문제 분석
         </Link>
       </section>
+
+      {params.error && (
+        <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+          {params.error}
+        </p>
+      )}
+      {params.success && (
+        <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+          {params.success}
+        </p>
+      )}
 
       <section className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -325,28 +339,17 @@ export default async function NotesPage({
         )}
       </section>
 
-      <form action="/notes/print" method="get" target="_blank">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold">
-              {activeSubject?.name ?? "전체 과목"}
-              {activeClassification && ` · ${valueFilter || activeClassification.label}`}
-            </h2>
-            <p className="mt-1 text-xs text-slate-400">{filteredNotes.length}개의 오답</p>
-          </div>
-          {filteredNotes.length > 0 && (
-            <div className="text-right">
-              <button
-                type="submit"
-                className="rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-sm font-bold text-indigo-600 shadow-sm transition hover:bg-indigo-50"
-              >
-                선택 항목 인쇄 · PDF 저장
-              </button>
-              <p className="mt-1 text-[11px] text-slate-400">한 번에 최대 20개</p>
-            </div>
-          )}
-        </div>
-
+      <BulkNotesForm
+        heading={`${activeSubject?.name ?? "전체 과목"}${activeClassification ? ` · ${valueFilter || activeClassification.label}` : ""}`}
+        resultCount={filteredNotes.length}
+        subjects={subjects.map((subject) => ({ id: subject.id, name: subject.name }))}
+        returnTo={notesHref({
+          subject: subjectFilter,
+          classification,
+          value: valueFilter,
+          query: searchQuery,
+        })}
+      >
         <ul className="space-y-3">
           {filteredNotes.map((note) => {
             const subject = note.subject_id ? subjectMap.get(note.subject_id) : undefined;
@@ -458,7 +461,7 @@ export default async function NotesPage({
             </li>
           )}
         </ul>
-      </form>
+      </BulkNotesForm>
     </div>
   );
 }
