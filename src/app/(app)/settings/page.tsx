@@ -8,6 +8,7 @@ import {
   sendFamilyInvitationEmail,
 } from "./actions";
 import { CopyInviteLinkButton } from "./copy-invite-link-button";
+import { BirthDateInput } from "./birth-date-input";
 
 export default async function SettingsPage({
   searchParams,
@@ -318,7 +319,7 @@ export default async function SettingsPage({
                 </label>
                 <label className="block text-sm">
                   <span className="font-medium">자녀 생년월일</span>
-                  <input name="childDateOfBirth" type="date" required max={new Date().toISOString().slice(0, 10)} className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900" />
+                  <BirthDateInput />
                 </label>
               </div>
               <InviteContactFields type="child" />
