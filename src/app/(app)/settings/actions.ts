@@ -6,6 +6,18 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+type InvitationDirection =
+  | "child_invites_guardian"
+  | "guardian_invites_child";
+
+type InvitationRecord = {
+  id: string;
+  direction: InvitationDirection;
+  invitee_email: string;
+  child_name: string | null;
+  child_date_of_birth: string | null;
+};
+
 function siteUrl() {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (configured) return new URL(configured).origin;
@@ -17,6 +29,102 @@ function normalizePhone(value: string) {
   return value.replace(/[^\d+]/g, "");
 }
 
+async function findProfileByEmail(
+  admin: ReturnType<typeof createAdminClient>,
+  email: string,
+) {
+  const { data, error } = await admin
+    .from("profiles")
+    .select("id, email, guardian_required")
+    .ilike("email", email)
+    .limit(2);
+
+  if (error) {
+    return { profile: null, error: "회원 이메일을 확인하지 못했습니다." };
+  }
+  if ((data ?? []).length > 1) {
+    return {
+      profile: null,
+      error: "동일한 이메일의 회원 정보가 중복되어 있습니다. 고객지원에 문의해 주세요.",
+    };
+  }
+
+  return { profile: data?.[0] ?? null, error: null };
+}
+
+async function sendInvitationByAccountStatus({
+  admin,
+  invitation,
+  token,
+}: {
+  admin: ReturnType<typeof createAdminClient>;
+  invitation: InvitationRecord;
+  token: string;
+}) {
+  const email = invitation.invitee_email;
+  const invitePath = `/guardian/invite/${token}`;
+  const emailRedirectTo = `${siteUrl()}/auth/callback?next=${encodeURIComponent(invitePath)}`;
+  const { profile, error: lookupError } = await findProfileByEmail(admin, email);
+
+  if (lookupError) {
+    return { error: { message: lookupError }, recipientType: "unknown" as const };
+  }
+
+  if (profile) {
+    const linkedPartyUpdate =
+      invitation.direction === "child_invites_guardian"
+        ? { guardian_user_id: profile.id }
+        : { child_user_id: profile.id };
+    const { error: updateError } = await admin
+      .from("family_invitations")
+      .update(linkedPartyUpdate)
+      .eq("id", invitation.id)
+      .eq("status", "pending");
+    if (updateError) {
+      return {
+        error: { message: "초대 대상 회원 정보를 저장하지 못했습니다." },
+        recipientType: "existing" as const,
+      };
+    }
+
+    const { error } = await admin.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: false, emailRedirectTo },
+    });
+    return { error, recipientType: "existing" as const };
+  }
+
+  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: emailRedirectTo,
+    data: {
+      display_name:
+        invitation.direction === "guardian_invites_child"
+          ? invitation.child_name
+          : null,
+      date_of_birth:
+        invitation.direction === "guardian_invites_child"
+          ? invitation.child_date_of_birth
+          : null,
+      country_code: "KR",
+      family_invitation_id: invitation.id,
+    },
+  });
+
+  if (!error && data.user) {
+    const linkedPartyUpdate =
+      invitation.direction === "child_invites_guardian"
+        ? { guardian_user_id: data.user.id }
+        : { child_user_id: data.user.id };
+    await admin
+      .from("family_invitations")
+      .update(linkedPartyUpdate)
+      .eq("id", invitation.id)
+      .eq("status", "pending");
+  }
+
+  return { error, recipientType: "new" as const };
+}
+
 export async function createFamilyInvitation(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -24,7 +132,7 @@ export async function createFamilyInvitation(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const direction = String(formData.get("direction") ?? "");
+  const direction = String(formData.get("direction") ?? "") as InvitationDirection;
   const channel = String(formData.get("channel") ?? "email");
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const phone = normalizePhone(String(formData.get("phone") ?? ""));
@@ -40,6 +148,12 @@ export async function createFamilyInvitation(formData: FormData) {
   }
   if (channel === "sms" && !/^\+?\d{9,15}$/.test(phone)) {
     redirect("/settings?error=" + encodeURIComponent("국가번호를 포함한 휴대전화 번호를 입력해 주세요."));
+  }
+  if (email && user.email?.trim().toLowerCase() === email) {
+    redirect(
+      "/settings?error=" +
+        encodeURIComponent("본인 이메일은 보호자 또는 자녀 초대 이메일로 사용할 수 없습니다."),
+    );
   }
 
   const { data: profile } = await supabase
@@ -71,6 +185,77 @@ export async function createFamilyInvitation(formData: FormData) {
   const token = randomBytes(32).toString("base64url");
   const tokenHash = createHash("sha256").update(token).digest("hex");
   const admin = createAdminClient();
+  const { profile: inviteeProfile, error: lookupError } =
+    channel === "email"
+      ? await findProfileByEmail(admin, email)
+      : { profile: null, error: null };
+  if (lookupError) {
+    redirect("/settings?error=" + encodeURIComponent(lookupError));
+  }
+
+  if (
+    direction === "child_invites_guardian" &&
+    inviteeProfile?.guardian_required
+  ) {
+    redirect(
+      "/settings?error=" +
+        encodeURIComponent("미성년 학습자 계정은 보호자 계정으로 연결할 수 없습니다."),
+    );
+  }
+  if (
+    direction === "guardian_invites_child" &&
+    inviteeProfile &&
+    !inviteeProfile.guardian_required
+  ) {
+    redirect(
+      "/settings?error=" +
+        encodeURIComponent("기존 회원이 미성년 학습자 계정으로 등록되어 있지 않습니다."),
+    );
+  }
+
+  if (inviteeProfile) {
+    const childUserId =
+      direction === "child_invites_guardian" ? user.id : inviteeProfile.id;
+    const guardianUserId =
+      direction === "child_invites_guardian" ? inviteeProfile.id : user.id;
+    const { data: existingLink } = await admin
+      .from("guardian_links")
+      .select("id, status")
+      .eq("child_user_id", childUserId)
+      .eq("guardian_user_id", guardianUserId)
+      .in("status", ["pending", "active"])
+      .maybeSingle();
+    if (existingLink) {
+      redirect(
+        "/settings?error=" +
+          encodeURIComponent(
+            existingLink.status === "active"
+              ? "이미 연결된 보호자와 자녀 계정입니다."
+              : "이미 연결 승인을 기다리고 있는 계정입니다.",
+          ),
+      );
+    }
+  }
+
+  if (channel === "email") {
+    const { data: pendingInvitation } = await admin
+      .from("family_invitations")
+      .select("id")
+      .eq("inviter_user_id", user.id)
+      .eq("direction", direction)
+      .eq("invitee_email", email)
+      .eq("status", "pending")
+      .gt("expires_at", new Date().toISOString())
+      .limit(1)
+      .maybeSingle();
+    if (pendingInvitation) {
+      redirect(
+        "/settings?error=" +
+          encodeURIComponent("같은 이메일로 발송한 초대가 아직 처리 중입니다."),
+      );
+    }
+  }
+
   const invitation = {
     inviter_user_id: user.id,
     direction,
@@ -85,22 +270,52 @@ export async function createFamilyInvitation(formData: FormData) {
     token_hash: tokenHash,
   };
 
-  const { error } = await admin
+  const { data: createdInvitation, error } = await admin
     .from("family_invitations")
-    .insert(invitation);
-  if (error) {
+    .insert(invitation)
+    .select("id, direction, invitee_email, child_name, child_date_of_birth")
+    .single();
+  if (error || !createdInvitation) {
     redirect("/settings?error=" + encodeURIComponent("초대를 만들지 못했습니다. DB 마이그레이션 적용 상태를 확인해 주세요."));
   }
 
   const invitePath = `/guardian/invite/${token}`;
   const inviteUrl = `${siteUrl()}${invitePath}`;
 
+  let deliveryError: { code?: string; message: string } | null = null;
+  let recipientType: "existing" | "new" | "unknown" = "unknown";
+  if (channel === "email") {
+    const delivery = await sendInvitationByAccountStatus({
+      admin,
+      invitation: createdInvitation as InvitationRecord,
+      token,
+    });
+    deliveryError = delivery.error;
+    recipientType = delivery.recipientType;
+  }
+
   const params = new URLSearchParams({
-    success: "초대 링크를 만들었습니다. 이메일로 전송하면 가입 여부를 자동 확인해 연결합니다.",
     invite: inviteUrl,
     channel,
     contact: channel === "email" ? email : phone,
   });
+  if (deliveryError) {
+    params.set(
+      "error",
+      deliveryError.code === "over_email_send_rate_limit"
+        ? "이메일 발송 횟수를 초과했습니다. 잠시 후 다시 시도해 주세요."
+        : deliveryError.message.includes("회원")
+          ? deliveryError.message
+          : "초대 이메일을 보내지 못했습니다. 링크를 복사하거나 잠시 후 다시 시도해 주세요.",
+    );
+  } else {
+    params.set(
+      "success",
+      recipientType === "existing"
+        ? `${email}의 가입 정보를 확인했습니다. 이메일 동의 링크를 발송했습니다.`
+        : `${email}은 미가입 이메일입니다. 회원가입이 포함된 초대 링크를 발송했습니다.`,
+    );
+  }
   revalidatePath("/settings");
   redirect(`/settings?${params.toString()}`);
 }
@@ -147,54 +362,12 @@ export async function sendFamilyInvitationEmail(formData: FormData) {
     redirect("/settings?error=" + encodeURIComponent("초대 정보가 만료되었거나 일치하지 않습니다."));
   }
 
-  const invitePath = `/guardian/invite/${token}`;
-  const autoConnectPath = `${invitePath}/auto`;
-  const emailRedirectTo = `${siteUrl()}/auth/callback?next=${encodeURIComponent(autoConnectPath)}`;
-  let sendError: { code?: string; message: string } | null = null;
-
-  if (invitation.direction === "guardian_invites_child") {
-    const { data, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: emailRedirectTo,
-      data: {
-        display_name: invitation.child_name,
-        date_of_birth: invitation.child_date_of_birth,
-        country_code: "KR",
-        family_invitation_id: invitation.id,
-      },
-    });
-
-    if (!inviteError) {
-      if (data.user) {
-        await admin
-          .from("family_invitations")
-          .update({ child_user_id: data.user.id })
-          .eq("id", invitation.id);
-      }
-    } else if (
-      inviteError.code === "email_exists"
-      || /already|registered|exists/i.test(inviteError.message)
-    ) {
-      const { error: magicLinkError } = await admin.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: false,
-          emailRedirectTo,
-        },
-      });
-      sendError = magicLinkError;
-    } else {
-      sendError = inviteError;
-    }
-  } else {
-    const { error: magicLinkError } = await admin.auth.signInWithOtp({
-      email,
-      options: {
-        shouldCreateUser: true,
-        emailRedirectTo,
-      },
-    });
-    sendError = magicLinkError;
-  }
+  const delivery = await sendInvitationByAccountStatus({
+    admin,
+    invitation: invitation as InvitationRecord,
+    token,
+  });
+  const sendError = delivery.error;
 
   const params = new URLSearchParams({
     invite: inviteUrl,
@@ -204,14 +377,17 @@ export async function sendFamilyInvitationEmail(formData: FormData) {
   if (sendError) {
     params.set(
       "error",
-      sendError.code === "over_email_send_rate_limit"
+      ("code" in sendError ? sendError.code : undefined) ===
+        "over_email_send_rate_limit"
         ? "이메일 발송 횟수를 초과했습니다. 잠시 후 다시 시도해 주세요."
         : "초대 이메일을 보내지 못했습니다. Supabase 이메일 설정을 확인해 주세요.",
     );
   } else {
     params.set(
       "success",
-      `${email}로 초대 이메일을 보냈습니다. 받은 사람이 이메일 인증을 완료하면 계정이 자동 연결됩니다.`,
+      delivery.recipientType === "existing"
+        ? `${email}의 가입 정보를 확인했습니다. 이메일 동의 링크를 다시 발송했습니다.`
+        : `${email}로 회원가입이 포함된 초대 링크를 다시 발송했습니다.`,
     );
   }
 

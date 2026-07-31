@@ -88,7 +88,7 @@ export default async function SettingsPage({
       {success && <Notice tone="success">{success}</Notice>}
       {invite && (
         <section className="rounded-xl border border-indigo-200 bg-indigo-50 p-5 dark:border-indigo-900 dark:bg-indigo-950/40">
-          <h2 className="font-semibold text-indigo-950 dark:text-indigo-100">초대 링크가 준비되었습니다</h2>
+          <h2 className="font-semibold text-indigo-950 dark:text-indigo-100">초대 링크 및 발송 결과</h2>
           <p className="mt-2 break-all rounded-lg bg-white p-3 text-sm text-indigo-800 dark:bg-neutral-950 dark:text-indigo-200">
             {invite}
           </p>
@@ -98,7 +98,7 @@ export default async function SettingsPage({
                 <input type="hidden" name="email" value={contact} />
                 <input type="hidden" name="inviteUrl" value={invite} />
                 <button className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">
-                  이메일로 전송하기
+                  이메일 다시 전송하기
                 </button>
               </form>
             )}
@@ -282,12 +282,12 @@ export default async function SettingsPage({
             <form action={createFamilyInvitation} className="space-y-4 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
               <input type="hidden" name="direction" value="child_invites_guardian" />
               <div>
-                <h3 className="font-semibold">보호자 초대</h3>
+                <h3 className="font-semibold">보호자 초대 및 동의(미성년 회원)</h3>
                 <p className="mt-1 text-xs leading-5 text-neutral-500">
-                  보호자에게 이메일이나 문자로 승인 링크를 보냅니다.
+                  보호자 이메일의 가입 여부와 중복 연결을 확인한 후 동의 링크를 보냅니다.
                 </p>
               </div>
-              <InviteContactFields />
+              <InviteContactFields type="guardian" />
               <label className="block text-sm">
                 <span className="font-medium">관계</span>
                 <select name="relationship" className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900">
@@ -297,7 +297,7 @@ export default async function SettingsPage({
                 </select>
               </label>
               <button className="w-full rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-neutral-900">
-                보호자 초대 링크 만들기
+                보호자 동의 이메일 발송
               </button>
             </form>
           )}
@@ -306,9 +306,9 @@ export default async function SettingsPage({
             <form action={createFamilyInvitation} className="space-y-4 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
               <input type="hidden" name="direction" value="guardian_invites_child" />
               <div>
-                <h3 className="font-semibold">자녀 연결 또는 계정 생성</h3>
+                <h3 className="font-semibold">자녀 초대(부모님회원)</h3>
                 <p className="mt-1 text-xs leading-5 text-neutral-500">
-                  기존 자녀에게 연결 링크를 보내거나, 이메일 초대로 새 자녀 계정을 만듭니다.
+                  미성년 자녀 이메일의 가입 여부와 중복 연결을 확인한 후 초대 링크를 보냅니다.
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -321,14 +321,14 @@ export default async function SettingsPage({
                   <input name="childDateOfBirth" type="date" required max={new Date().toISOString().slice(0, 10)} className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900" />
                 </label>
               </div>
-              <InviteContactFields />
+              <InviteContactFields type="child" />
               <p className="rounded-lg bg-indigo-50 p-3 text-sm text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200">
-                이메일 전송 시 가입 여부를 자동 확인합니다. 신규 이메일은 자녀 계정을 만들고,
-                기존 회원은 이메일 인증 후 현재 계정에 바로 연결됩니다.
+                기존 회원에게는 연결 동의 링크를 보내고, 미가입 이메일에는 회원가입이 포함된
+                초대 링크를 보냅니다. 이메일 인증과 동의 전에는 연결되지 않습니다.
               </p>
               <input type="hidden" name="relationship" value="parent" />
               <button className="w-full rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-neutral-900">
-                자녀 초대 시작하기
+                자녀 초대 이메일 발송
               </button>
             </form>
           )}
@@ -380,22 +380,24 @@ export default async function SettingsPage({
   );
 }
 
-function InviteContactFields() {
+function InviteContactFields({ type }: { type: "guardian" | "child" }) {
   return (
     <div className="space-y-3">
       <input type="hidden" name="channel" value="email" />
       <label className="block text-sm">
-        <span className="font-medium">보호자 이메일</span>
+        <span className="font-medium">
+          {type === "guardian" ? "보호자 이메일" : "미성년 자녀 이메일"}
+        </span>
         <input
           name="email"
           type="email"
           required
-          placeholder="guardian@example.com"
+          placeholder={type === "guardian" ? "guardian@example.com" : "child@example.com"}
           className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900"
         />
       </label>
       <p className="text-xs text-neutral-500">
-        링크 생성 후 이메일로 바로 보내거나 공유링크를 복사할 수 있습니다.
+        본인 이메일, 기존 연결, 처리 중인 동일 초대를 확인한 후 발송합니다.
       </p>
     </div>
   );
