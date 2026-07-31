@@ -3,20 +3,27 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { acceptFamilyInvitationForUser } from "@/lib/family-invitations";
+import {
+  acceptFamilyInvitationByIdForUser,
+  acceptFamilyInvitationForUser,
+} from "@/lib/family-invitations";
 
 export async function acceptFamilyInvitation(formData: FormData) {
   const token = String(formData.get("token") ?? "");
+  const invitationId = String(formData.get("invitationId") ?? "");
+  const returnPath = token
+    ? `/guardian/invite/${encodeURIComponent(token)}`
+    : `/guardian/invite/pending/${encodeURIComponent(invitationId)}`;
   const consent = formData.get("guardianConsent") === "on";
   const agreeTerms = formData.get("agreeTerms") === "on";
   const agreePrivacy = formData.get("agreePrivacy") === "on";
   const password = String(formData.get("password") ?? "");
   const passwordConfirm = String(formData.get("passwordConfirm") ?? "");
-  if (!token || !consent || !agreeTerms || !agreePrivacy) {
-    redirect(`/guardian/invite/${encodeURIComponent(token)}?error=${encodeURIComponent("보호자 동의 및 연결 승인에 동의해 주세요.")}`);
+  if ((!token && !invitationId) || !consent || !agreeTerms || !agreePrivacy) {
+    redirect(`${returnPath}?error=${encodeURIComponent("보호자 동의 및 연결 승인에 동의해 주세요.")}`);
   }
   if (password && (password.length < 8 || password !== passwordConfirm)) {
-    redirect(`/guardian/invite/${encodeURIComponent(token)}?error=${encodeURIComponent("새 비밀번호는 8자 이상이며 확인 값과 일치해야 합니다.")}`);
+    redirect(`${returnPath}?error=${encodeURIComponent("새 비밀번호는 8자 이상이며 확인 값과 일치해야 합니다.")}`);
   }
 
   const supabase = await createClient();
@@ -24,12 +31,12 @@ export async function acceptFamilyInvitation(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    redirect(`/login?next=${encodeURIComponent(`/guardian/invite/${token}`)}`);
+    redirect(`/login?next=${encodeURIComponent(returnPath)}`);
   }
   if (password) {
     const { error: passwordError } = await supabase.auth.updateUser({ password });
     if (passwordError) {
-      redirect(`/guardian/invite/${encodeURIComponent(token)}?error=${encodeURIComponent("새 비밀번호를 설정하지 못했습니다.")}`);
+      redirect(`${returnPath}?error=${encodeURIComponent("새 비밀번호를 설정하지 못했습니다.")}`);
     }
   }
 
@@ -44,13 +51,19 @@ export async function acceptFamilyInvitation(formData: FormData) {
       privacy_version: "2026-07-28",
     })
     .eq("id", user.id);
-  const result = await acceptFamilyInvitationForUser({
-    token,
-    userId: user.id,
-    userEmail: user.email,
-  });
+  const result = token
+    ? await acceptFamilyInvitationForUser({
+        token,
+        userId: user.id,
+        userEmail: user.email,
+      })
+    : await acceptFamilyInvitationByIdForUser({
+        invitationId,
+        userId: user.id,
+        userEmail: user.email,
+      });
   if (!result.ok) {
-    redirect(`/guardian/invite/${encodeURIComponent(token)}?error=${encodeURIComponent(result.error)}`);
+    redirect(`${returnPath}?error=${encodeURIComponent(result.error)}`);
   }
 
   redirect("/settings?success=" + encodeURIComponent("보호자와 자녀 계정 연결이 완료되었습니다."));

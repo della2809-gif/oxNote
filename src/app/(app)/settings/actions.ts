@@ -35,7 +35,7 @@ async function findProfileByEmail(
 ) {
   const { data, error } = await admin
     .from("profiles")
-    .select("id, email, guardian_required")
+    .select("id, email, display_name, guardian_required")
     .ilike("email", email)
     .limit(2);
 
@@ -52,6 +52,66 @@ async function findProfileByEmail(
   return { profile: data?.[0] ?? null, error: null };
 }
 
+function maskDisplayName(value: string | null) {
+  const characters = Array.from(value?.trim() ?? "");
+  if (characters.length === 0) return "이름 미등록";
+  if (characters.length === 1) return `${characters[0]}*`;
+  if (characters.length === 2) return `${characters[0]}*`;
+  return `${characters[0]}${"*".repeat(characters.length - 2)}${characters.at(-1)}`;
+}
+
+export async function lookupFamilyInvitee(
+  rawEmail: string,
+  direction: InvitationDirection,
+) {
+  const email = rawEmail.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { status: "error" as const, message: "올바른 이메일을 입력해 주세요." };
+  }
+  if (!["child_invites_guardian", "guardian_invites_child"].includes(direction)) {
+    return { status: "error" as const, message: "올바른 연결 유형이 아닙니다." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { status: "error" as const, message: "로그인 후 다시 시도해 주세요." };
+  }
+  if (user.email?.trim().toLowerCase() === email) {
+    return { status: "error" as const, message: "본인 이메일은 연결 대상으로 사용할 수 없습니다." };
+  }
+
+  const admin = createAdminClient();
+  const { profile, error } = await findProfileByEmail(admin, email);
+  if (error) return { status: "error" as const, message: error };
+  if (!profile) {
+    return {
+      status: "not_found" as const,
+      verificationKey: "new",
+    };
+  }
+  if (direction === "child_invites_guardian" && profile.guardian_required) {
+    return {
+      status: "error" as const,
+      message: "이 이메일은 보호자로 연결할 수 있는 성인 회원 계정이 아닙니다.",
+    };
+  }
+  if (direction === "guardian_invites_child" && !profile.guardian_required) {
+    return {
+      status: "error" as const,
+      message: "이 이메일은 미성년 학습자 계정으로 등록되어 있지 않습니다.",
+    };
+  }
+
+  return {
+    status: "found" as const,
+    maskedName: maskDisplayName(profile.display_name),
+    verificationKey: profile.id,
+  };
+}
+
 async function sendInvitationByAccountStatus({
   admin,
   invitation,
@@ -63,12 +123,16 @@ async function sendInvitationByAccountStatus({
 }) {
   const email = invitation.invitee_email;
   const invitePath = `/guardian/invite/${token}`;
-  const emailRedirectTo = `${siteUrl()}/auth/callback?next=${encodeURIComponent(invitePath)}`;
   const { profile, error: lookupError } = await findProfileByEmail(admin, email);
 
   if (lookupError) {
     return { error: { message: lookupError }, recipientType: "unknown" as const };
   }
+
+  const confirmationPath = profile
+    ? `/guardian/invite/pending/${invitation.id}`
+    : invitePath;
+  const emailRedirectTo = `${siteUrl()}/auth/callback?next=${encodeURIComponent(confirmationPath)}`;
 
   if (profile) {
     const linkedPartyUpdate =
@@ -139,6 +203,7 @@ export async function createFamilyInvitation(formData: FormData) {
   const relationship = String(formData.get("relationship") ?? "parent");
   const childName = String(formData.get("childName") ?? "").trim();
   const childDateOfBirth = String(formData.get("childDateOfBirth") ?? "");
+  const verifiedTarget = String(formData.get("verifiedTarget") ?? "");
 
   if (!["child_invites_guardian", "guardian_invites_child"].includes(direction)) {
     redirect("/settings?error=" + encodeURIComponent("올바른 초대 유형을 선택해 주세요."));
@@ -191,6 +256,18 @@ export async function createFamilyInvitation(formData: FormData) {
       : { profile: null, error: null };
   if (lookupError) {
     redirect("/settings?error=" + encodeURIComponent(lookupError));
+  }
+  if (
+    channel === "email"
+    && (
+      (inviteeProfile && verifiedTarget !== inviteeProfile.id)
+      || (!inviteeProfile && verifiedTarget !== "new")
+    )
+  ) {
+    redirect(
+      "/settings?error="
+        + encodeURIComponent("이메일 회원 정보를 다시 조회하고 대상이 맞는지 확인해 주세요."),
+    );
   }
 
   if (

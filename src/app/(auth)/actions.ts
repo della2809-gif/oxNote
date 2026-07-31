@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 function authErrorMessage(code?: string) {
   if (code === "invalid_credentials") {
@@ -61,6 +62,24 @@ export async function signIn(formData: FormData) {
 
   if (error) {
     redirect(`/login?error=${encodeURIComponent(authErrorMessage(error.code))}&next=${encodeURIComponent(next)}`);
+  }
+
+  if (next === "/dashboard") {
+    const admin = createAdminClient();
+    const { data: pendingInvitation } = await admin
+      .from("family_invitations")
+      .select("id")
+      .ilike("invitee_email", email)
+      .eq("status", "pending")
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (pendingInvitation) {
+      redirect(
+        `/guardian/invite/pending/${pendingInvitation.id}?message=${encodeURIComponent("로그인이 완료되었습니다. 대기 중인 보호자·자녀 연결 요청을 확인해 주세요.")}`,
+      );
+    }
   }
 
   redirect(next);

@@ -13,6 +13,16 @@ type AcceptInvitationResult =
   | { ok: true }
   | { ok: false; error: string };
 
+type FamilyInvitationRecord = {
+  id: string;
+  inviter_user_id: string;
+  direction: "child_invites_guardian" | "guardian_invites_child";
+  invitee_email: string | null;
+  child_user_id: string | null;
+  guardian_user_id: string | null;
+  relationship: "parent" | "legal_guardian" | "other";
+};
+
 export async function acceptFamilyInvitationForUser({
   token,
   userId,
@@ -32,13 +42,56 @@ export async function acceptFamilyInvitationForUser({
     return { ok: false, error: "초대가 만료되었거나 이미 사용되었습니다." };
   }
 
+  return acceptInvitationRecord({ invitation, userId, userEmail });
+}
+
+export async function acceptFamilyInvitationByIdForUser({
+  invitationId,
+  userId,
+  userEmail,
+}: {
+  invitationId: string;
+  userId: string;
+  userEmail?: string | null;
+}): Promise<AcceptInvitationResult> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(invitationId)) {
+    return { ok: false, error: "올바른 연결 요청이 아닙니다." };
+  }
+
+  const admin = createAdminClient();
+  const { data: invitation } = await admin
+    .from("family_invitations")
+    .select("*")
+    .eq("id", invitationId)
+    .eq("status", "pending")
+    .gt("expires_at", new Date().toISOString())
+    .maybeSingle();
+
+  if (!invitation) {
+    return { ok: false, error: "연결 요청이 만료되었거나 이미 처리되었습니다." };
+  }
+
+  return acceptInvitationRecord({ invitation, userId, userEmail });
+}
+
+async function acceptInvitationRecord({
+  invitation,
+  userId,
+  userEmail,
+}: {
+  invitation: FamilyInvitationRecord;
+  userId: string;
+  userEmail?: string | null;
+}): Promise<AcceptInvitationResult> {
+  const admin = createAdminClient();
+
   const normalizedEmail = userEmail?.trim().toLowerCase();
   if (invitation.invitee_email && invitation.invitee_email !== normalizedEmail) {
     return { ok: false, error: "초대받은 이메일 계정으로 로그인해 주세요." };
   }
 
-  let childUserId: string;
-  let guardianUserId: string;
+  let childUserId: string | null;
+  let guardianUserId: string | null;
   if (invitation.direction === "child_invites_guardian") {
     childUserId = invitation.child_user_id;
     guardianUserId = userId;
