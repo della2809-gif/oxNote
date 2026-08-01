@@ -6,9 +6,9 @@ import { signOut } from "../(auth)/actions";
 import { NotificationBell, type HeaderNotification } from "./notification-bell";
 
 const NAV_LINKS = [
-  { href: "/dashboard", label: "대시보드" },
+  { href: "/dashboard", label: "홈" },
   { href: "/notes", label: "오답노트" },
-  { href: "/review", label: "복습" },
+  { href: "/review", label: "복습하기" },
   { href: "/settings", label: "설정" },
 ];
 
@@ -33,6 +33,7 @@ export default async function AppLayout({
     guardianLinksResult,
     incomingInvitationsResult,
     outgoingInvitationsResult,
+    profileResult,
   ] = await Promise.all([
     supabase
       .from("notes")
@@ -73,7 +74,14 @@ export default async function AppLayout({
       .eq("inviter_user_id", user.id)
       .eq("status", "pending")
       .gt("expires_at", now.toISOString()),
+    supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user.id)
+      .maybeSingle(),
   ]);
+
+  const displayName = profileResult.data?.display_name?.trim() || "회원";
 
   const notifications: HeaderNotification[] = [];
   const dueReviewCount = dueReviewsResult.count ?? 0;
@@ -203,8 +211,8 @@ export default async function AppLayout({
           <div className="flex shrink-0 items-center gap-1 sm:gap-3">
             <NotificationBell notifications={notifications} />
             <form action={signOut} className="flex items-center gap-3">
-              <span className="hidden max-w-[220px] truncate text-sm text-slate-500 lg:block">
-                {user.email}
+              <span className="hidden max-w-[220px] truncate text-sm font-medium text-slate-600 sm:block dark:text-neutral-300">
+                {displayName}
               </span>
               <button
                 type="submit"
