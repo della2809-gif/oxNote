@@ -4,6 +4,7 @@ import type { Note, NoteAiDetails, Subject } from "@/lib/types";
 import { BulkNotesForm } from "./BulkNotesForm";
 
 type ClassificationKey = "unit" | "source" | "type" | "concept" | "reason";
+type SortOrder = "newest" | "oldest";
 
 const CLASSIFICATIONS: Array<{
   key: ClassificationKey;
@@ -63,17 +64,20 @@ function notesHref({
   classification,
   value,
   query,
+  sort,
 }: {
   subject?: string;
   classification?: ClassificationKey;
   value?: string;
   query?: string;
+  sort?: SortOrder;
 }) {
   const params = new URLSearchParams();
   if (subject) params.set("subject", subject);
   if (classification) params.set("classification", classification);
   if (value) params.set("value", value);
   if (query) params.set("q", query);
+  if (sort === "oldest") params.set("sort", sort);
   const search = params.toString();
   return search ? `/notes?${search}` : "/notes";
 }
@@ -86,6 +90,7 @@ export default async function NotesPage({
     classification?: string;
     value?: string;
     q?: string;
+    sort?: string;
     error?: string;
     success?: string;
   }>;
@@ -97,11 +102,12 @@ export default async function NotesPage({
     : undefined;
   const valueFilter = params.value?.trim() ?? "";
   const searchQuery = params.q?.trim() ?? "";
+  const sortOrder: SortOrder = params.sort === "oldest" ? "oldest" : "newest";
 
   const supabase = await createClient();
   const [{ data: subjectsData }, { data: notesData }] = await Promise.all([
     supabase.from("subjects").select("*").order("name"),
-    supabase.from("notes").select("*").order("created_at", { ascending: false }),
+    supabase.from("notes").select("*").order("created_at", { ascending: sortOrder === "oldest" }),
   ]);
 
   const subjects = (subjectsData as Subject[] | null) ?? [];
@@ -135,8 +141,8 @@ export default async function NotesPage({
   const activeClassification = CLASSIFICATIONS.find((item) => item.key === classification);
 
   return (
-    <div className="space-y-7 text-slate-900">
-      <section className="flex flex-wrap items-end justify-between gap-4">
+    <div className="space-y-6 text-slate-900">
+      <section className="flex flex-wrap items-end justify-between gap-5 rounded-2xl bg-slate-50 p-5 sm:p-7">
         <div>
           <p className="text-sm font-bold text-indigo-600">나의 학습 라이브러리</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight">오답노트</h1>
@@ -163,69 +169,16 @@ export default async function NotesPage({
         </p>
       )}
 
-      <section className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-xs font-bold text-slate-400">전체 오답</p>
-          <p className="mt-2 text-2xl font-bold">{allNotes.length}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-xs font-bold text-slate-400">현재 조건 결과</p>
-          <p className="mt-2 text-2xl font-bold text-indigo-600">{filteredNotes.length}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-xs font-bold text-slate-400">완전 학습</p>
-          <p className="mt-2 text-2xl font-bold text-emerald-600">
-            {allNotes.filter((note) => note.mastered).length}
-          </p>
-        </div>
-      </section>
-
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <form action="/notes" method="get" className="flex flex-col gap-3 sm:flex-row">
-          {subjectFilter && <input type="hidden" name="subject" value={subjectFilter} />}
-          {classification && (
-            <input type="hidden" name="classification" value={classification} />
-          )}
-          {valueFilter && <input type="hidden" name="value" value={valueFilter} />}
-          <label className="relative min-w-0 flex-1">
-            <span className="sr-only">오답노트 검색</span>
-            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-              ⌕
-            </span>
-            <input
-              type="search"
-              name="q"
-              defaultValue={searchQuery}
-              placeholder="문제, 출처, 개념, 내가 틀린 이유를 검색"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-50"
-            />
-          </label>
-          <button
-            type="submit"
-            className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800"
-          >
-            검색
-          </button>
-          {(subjectFilter || classification || valueFilter || searchQuery) && (
-            <Link
-              href="/notes"
-              className="grid place-items-center rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-500 hover:bg-slate-50"
-            >
-              초기화
-            </Link>
-          )}
-        </form>
-
-        <div className="mt-6 border-t border-slate-100 pt-5">
+      <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-400">과목별 보기</p>
-            <Link href="/subjects" className="text-xs font-bold text-indigo-600 hover:text-indigo-700">
-              과목 관리 →
-            </Link>
+            <Link href="/subjects" className="text-xs font-bold text-indigo-600 hover:text-indigo-700">과목 관리 →</Link>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <Link
-              href={notesHref({ classification, query: searchQuery })}
+              href={notesHref({ classification, query: searchQuery, sort: sortOrder })}
               className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
                 !subjectFilter
                   ? "border-slate-900 bg-slate-900 text-white"
@@ -241,6 +194,7 @@ export default async function NotesPage({
                   subject: subject.id,
                   classification,
                   query: searchQuery,
+                  sort: sortOrder,
                 })}
                 className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold transition ${
                   subjectFilter === subject.id
@@ -263,10 +217,50 @@ export default async function NotesPage({
                 + 첫 과목 추가
               </Link>
             )}
+
+            <span className="hidden h-7 w-px bg-slate-200 sm:block" />
+
+            <details className="relative">
+              <summary className="cursor-pointer list-none rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:border-slate-300 [&::-webkit-details-marker]:hidden">
+                {sortOrder === "newest" ? "최신순" : "과거순"}⌄
+              </summary>
+              <div className="absolute right-0 z-20 mt-2 w-32 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                <Link href={notesHref({ subject: subjectFilter, classification, value: valueFilter, query: searchQuery, sort: "newest" })} className={`block rounded-lg px-3 py-2 text-sm ${sortOrder === "newest" ? "bg-slate-900 font-bold text-white" : "text-slate-600 hover:bg-slate-50"}`}>최신순</Link>
+                <Link href={notesHref({ subject: subjectFilter, classification, value: valueFilter, query: searchQuery, sort: "oldest" })} className={`block rounded-lg px-3 py-2 text-sm ${sortOrder === "oldest" ? "bg-slate-900 font-bold text-white" : "text-slate-600 hover:bg-slate-50"}`}>과거순</Link>
+              </div>
+            </details>
+
+            <details className="relative">
+              <summary className={`cursor-pointer list-none rounded-full border px-4 py-2 text-sm font-bold transition [&::-webkit-details-marker]:hidden ${searchQuery ? "border-indigo-600 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"}`}>
+                필터 ▾
+              </summary>
+              <form action="/notes" method="get" className="absolute right-0 z-20 mt-2 w-[min(88vw,28rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
+                {subjectFilter && <input type="hidden" name="subject" value={subjectFilter} />}
+                {classification && <input type="hidden" name="classification" value={classification} />}
+                {valueFilter && <input type="hidden" name="value" value={valueFilter} />}
+                {sortOrder === "oldest" && <input type="hidden" name="sort" value="oldest" />}
+                <label className="block text-xs font-bold text-slate-500">
+                  검색어
+                  <input
+                    type="search"
+                    name="q"
+                    defaultValue={searchQuery}
+                    placeholder="문제, 출처, 개념, 내가 틀린 이유"
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-indigo-400 focus:bg-white"
+                  />
+                </label>
+                <div className="mt-3 flex justify-end gap-2">
+                  {(subjectFilter || classification || valueFilter || searchQuery || sortOrder === "oldest") && (
+                    <Link href="/notes" className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-500">초기화</Link>
+                  )}
+                  <button type="submit" className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white">필터 적용</button>
+                </div>
+              </form>
+            </details>
           </div>
         </div>
 
-        <div className="mt-6 border-t border-slate-100 pt-5">
+        <div className="border-t border-slate-100 pt-5">
           <p className="text-xs font-bold uppercase tracking-wider text-slate-400">분류 기준</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
             {CLASSIFICATIONS.map((item) => (
@@ -276,8 +270,9 @@ export default async function NotesPage({
                   subject: subjectFilter,
                   classification: item.key,
                   query: searchQuery,
+                  sort: sortOrder,
                 })}
-                className={`rounded-2xl border p-3 transition ${
+                className={`rounded-xl border p-3 transition ${
                   classification === item.key
                     ? "border-indigo-500 bg-indigo-50"
                     : "border-slate-200 hover:border-indigo-200 hover:bg-slate-50"
@@ -304,6 +299,7 @@ export default async function NotesPage({
                   subject: subjectFilter,
                   classification,
                   query: searchQuery,
+                  sort: sortOrder,
                 })}
                 className={`rounded-full px-3 py-1.5 text-xs font-bold ${
                   !valueFilter ? "bg-slate-900 text-white" : "bg-white text-slate-500"
@@ -319,6 +315,7 @@ export default async function NotesPage({
                     classification,
                     value,
                     query: searchQuery,
+                    sort: sortOrder,
                   })}
                   className={`rounded-full px-3 py-1.5 text-xs font-bold ${
                     valueFilter === value
@@ -348,9 +345,10 @@ export default async function NotesPage({
           classification,
           value: valueFilter,
           query: searchQuery,
+          sort: sortOrder,
         })}
       >
-        <ul className="space-y-3">
+        <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white">
           {filteredNotes.map((note) => {
             const subject = note.subject_id ? subjectMap.get(note.subject_id) : undefined;
             const details = asDetails(note.ai_details);
@@ -360,7 +358,7 @@ export default async function NotesPage({
 
             return (
               <li key={note.id} className="relative">
-                <label className="absolute left-4 top-4 z-10 grid h-9 w-9 cursor-pointer place-items-center rounded-xl border border-slate-200 bg-white shadow-sm">
+                <label className="absolute left-4 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 cursor-pointer place-items-center rounded-xl border border-slate-200 bg-white shadow-sm">
                   <span className="sr-only">이 문제 선택</span>
                   <input
                     type="checkbox"
@@ -371,7 +369,7 @@ export default async function NotesPage({
                 </label>
                 <Link
                   href={`/notes/${note.id}`}
-                  className="group block rounded-2xl border border-slate-200 bg-white py-5 pl-16 pr-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
+                  className="group block py-4 pl-16 pr-5 transition hover:bg-slate-50"
                 >
                   <div className="flex flex-wrap items-center gap-2 text-xs">
                     {subject && (
@@ -408,22 +406,23 @@ export default async function NotesPage({
                     )}
                   </div>
 
-                  <div className="mt-3 flex items-start justify-between gap-4">
+                  <div className="mt-2 flex items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <p className="line-clamp-2 text-sm font-bold leading-6 text-slate-800 group-hover:text-indigo-700">
+                      <p className="line-clamp-1 text-sm font-bold leading-6 text-slate-800 group-hover:text-indigo-700">
                         {details.title || note.question}
                       </p>
                       {details.title && (
                         <p className="mt-1 line-clamp-1 text-xs text-slate-400">{note.question}</p>
                       )}
                     </div>
-                    <span className="shrink-0 text-slate-300 transition group-hover:translate-x-1 group-hover:text-indigo-500">
-                      →
+                    <span className="flex shrink-0 items-center gap-3 text-xs text-slate-400">
+                      {new Date(note.created_at).toLocaleDateString("ko-KR")}
+                      <span className="text-base text-slate-300 transition group-hover:translate-x-1 group-hover:text-indigo-500">→</span>
                     </span>
                   </div>
 
                   {(concepts.length > 0 || note.user_mistake_reason) && (
-                    <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
                       {concepts.map((concept) => (
                         <span key={concept} className="text-xs font-medium text-slate-500">
                           #{concept}
