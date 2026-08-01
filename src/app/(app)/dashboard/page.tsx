@@ -34,12 +34,12 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-xl font-semibold">대시보드</h1>
+      <h1 className="text-xl font-semibold">홈</h1>
 
       <div className="grid grid-cols-3 gap-4">
-        <StatCard label="전체 오답" value={totalNotes ?? 0} />
-        <StatCard label="완전 학습" value={masteredNotes ?? 0} />
-        <StatCard label="오늘 복습 대기" value={dueToday ?? 0} href="/review" />
+        <StatCard label="전체오답" value={totalNotes ?? 0} />
+        <StatCard label="복습완료" value={masteredNotes ?? 0} />
+        <StatCard label="오늘의복습" value={dueToday ?? 0} href="/review" />
       </div>
 
       <section className="space-y-3">

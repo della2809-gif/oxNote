@@ -197,7 +197,7 @@ export default function NoteForm({
         if (totalBytes <= SAFE_UPLOAD_BYTES) return;
         event.preventDefault();
         setClientError(
-          "한 번에 전송할 파일이 너무 큽니다. PDF 용량을 줄이거나 학생 풀이 파일을 제외하고 다시 시도해 주세요.",
+          "파일이 너무 큽니다. PDF 용량을 줄이거나 학생 풀이 파일을 제외하고 다시 시도해 주세요.",
         );
         window.scrollTo({ top: 0, behavior: "smooth" });
       }}
@@ -212,7 +212,7 @@ export default function NoteForm({
         <div className="flex items-center gap-4">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-indigo-600 text-sm font-bold text-white">1</span>
           <div>
-            <p className="text-sm font-bold text-slate-900">문제를 촬영하거나 사진·PDF를 올려주세요</p>
+            <p className="text-sm font-bold text-slate-900">문제를 촬영하거나 사진 또는 PDF를 올려주세요</p>
             <p className="mt-1 text-xs text-slate-400">JPG·PNG·WEBP·PDF · 파일당 최대 15MB</p>
           </div>
         </div>
@@ -385,7 +385,7 @@ export default function NoteForm({
             />
             {isProcessingSolution && (
               <p className="mt-3 text-xs font-semibold text-indigo-600">
-                학생 풀이 사진을 업로드에 맞게 줄이는 중입니다...
+                학생 풀이 사진을 업로드에 맞게 줄이는 중입니다.
               </p>
             )}
             {solution && (
