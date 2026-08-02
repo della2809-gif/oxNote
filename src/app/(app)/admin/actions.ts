@@ -116,6 +116,34 @@ export async function resolveDeletionRequest(formData: FormData) {
   revalidatePath("/admin");
 }
 
+export async function resolveSupportInquiry(formData: FormData) {
+  const { admin, user } = await requireAdmin();
+  const inquiryId = String(formData.get("inquiryId") ?? "");
+  const status = String(formData.get("status") ?? "");
+
+  if (
+    !inquiryId ||
+    !["received", "in_progress", "answered", "closed"].includes(status)
+  ) {
+    adminError("올바르지 않은 이용문의 상태입니다.");
+  }
+
+  const { error } = await admin
+    .from("support_inquiries")
+    .update({
+      status,
+      resolved_by: user.id,
+      resolved_at:
+        status === "answered" || status === "closed"
+          ? new Date().toISOString()
+          : null,
+    })
+    .eq("id", inquiryId);
+
+  if (error) adminError(error.message);
+  revalidatePath("/admin");
+}
+
 export async function createManagedUser(formData: FormData) {
   const { admin } = await requireAdmin();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();

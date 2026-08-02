@@ -6,13 +6,13 @@ import { canExportLearningData } from "@/lib/data-export-access";
 import {
   createFamilyInvitation,
   removeChildConnection,
-  requestAccountDeletion,
   sendFamilyInvitationEmail,
 } from "./actions";
 import { CopyInviteLinkButton } from "./copy-invite-link-button";
 import { BirthDateInput } from "./birth-date-input";
 import { InviteEmailVerification } from "./invite-email-verification";
 import { RemoveChildConnectionButton } from "./remove-child-connection-button";
+import { SupportAndAccountActions } from "./support-and-account-actions";
 
 export default async function SettingsPage({
   searchParams,
@@ -23,14 +23,18 @@ export default async function SettingsPage({
     invite?: string;
     channel?: string;
     contact?: string;
+    panel?: string;
   }>;
 }) {
-  const { error, success, invite, channel, contact } = await searchParams;
+  const { error, success, invite, channel, contact, panel } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    const next = panel === "support" ? "/settings?panel=support" : "/settings";
+    redirect(`/login?next=${encodeURIComponent(next)}`);
+  }
   const admin = createAdminClient();
 
   const [
@@ -418,6 +422,24 @@ export default async function SettingsPage({
       </section>
 
       <section className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
+        <h2 className="font-semibold">이용 지원과 계정</h2>
+        <p className="mt-2 text-sm text-neutral-500">
+          서비스 이용 문의를 확인하거나 계정 삭제를 요청할 수 있습니다.
+        </p>
+        <SupportAndAccountActions
+          initialPanel={panel === "support" ? "support" : null}
+          deletionRequest={
+            deletionRequest
+              ? {
+                  requestedAt: deletionRequest.requested_at,
+                  status: deletionRequest.status,
+                }
+              : null
+          }
+        />
+      </section>
+
+      <section className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
         <h2 className="font-semibold">약관과 개인정보</h2>
         <p className="mt-2 text-sm text-neutral-500">
           서비스 이용에 적용되는 문서와 데이터 처리 내용을 확인할 수 있습니다.
@@ -426,37 +448,6 @@ export default async function SettingsPage({
           <Link href="/terms" className="underline">이용약관</Link>
           <Link href="/privacy" className="underline">개인정보 처리방침</Link>
         </div>
-      </section>
-
-      <section className="rounded-xl border border-red-200 p-5 dark:border-red-900">
-        <h2 className="font-semibold text-red-700 dark:text-red-300">계정 삭제</h2>
-        {deletionRequest ? (
-          <p className="mt-2 text-sm text-neutral-500">
-            {new Date(deletionRequest.requested_at).toLocaleDateString("ko-KR")}에 요청했으며 현재 상태는{" "}
-            <strong>{deletionRequest.status}</strong>입니다.
-          </p>
-        ) : (
-          <form action={requestAccountDeletion} className="mt-4 space-y-3">
-            <p className="text-sm text-neutral-500">
-              요청이 접수되면 관리자가 구독과 데이터를 확인한 뒤 삭제를 처리합니다.
-            </p>
-            <textarea
-              name="reason"
-              rows={2}
-              placeholder="탈퇴 사유 (선택)"
-              className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
-            />
-            <input
-              name="confirmation"
-              required
-              placeholder="'계정 삭제 요청' 입력"
-              className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
-            />
-            <button className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500">
-              삭제 요청 접수
-            </button>
-          </form>
-        )}
       </section>
     </div>
   );

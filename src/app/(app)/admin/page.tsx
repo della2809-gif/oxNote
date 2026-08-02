@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
   resolveDeletionRequest,
+  resolveSupportInquiry,
   updateAccountStatus,
   updateUserPlan,
 } from "./actions";
@@ -67,6 +68,17 @@ type DeletionRequest = {
   requested_at: string;
 };
 
+type SupportInquiry = {
+  id: string;
+  user_id: string;
+  category: "service" | "account" | "billing" | "technical" | "other";
+  subject: string;
+  message: string;
+  status: "received" | "in_progress" | "answered" | "closed";
+  email_notification_status: "pending" | "sent" | "failed" | "not_configured";
+  requested_at: string;
+};
+
 type SearchParams = {
   error?: string;
   q?: string;
@@ -86,6 +98,18 @@ const STATUS_LABELS: Record<string, string> = {
   not_required: "동의 불필요",
   requested: "접수",
   processing: "처리 중",
+  received: "접수",
+  in_progress: "확인 중",
+  answered: "답변 완료",
+  closed: "종료",
+};
+
+const SUPPORT_CATEGORY_LABELS: Record<SupportInquiry["category"], string> = {
+  service: "서비스 이용",
+  account: "계정",
+  billing: "결제·구독",
+  technical: "오류·기술 지원",
+  other: "기타",
 };
 
 export const dynamic = "force-dynamic";
@@ -116,6 +140,7 @@ export default async function AdminPage({
     plansResult,
     usageResult,
     guardianLinksResult,
+    supportInquiriesResult,
     deletionRequestsResult,
   ] = await Promise.all([
     supabase
@@ -148,6 +173,13 @@ export default async function AdminPage({
       )
       .order("created_at", { ascending: false }),
     supabase
+      .from("support_inquiries")
+      .select(
+        "id, user_id, category, subject, message, status, email_notification_status, requested_at",
+      )
+      .in("status", ["received", "in_progress"])
+      .order("requested_at"),
+    supabase
       .from("account_deletion_requests")
       .select("id, user_id, reason, status, requested_at")
       .in("status", ["requested", "processing"])
@@ -160,6 +192,7 @@ export default async function AdminPage({
     plansResult.error,
     usageResult.error,
     guardianLinksResult.error,
+    supportInquiriesResult.error,
     deletionRequestsResult.error,
   ].filter(Boolean);
 
@@ -170,6 +203,8 @@ export default async function AdminPage({
   const usageEvents = (usageResult.data as UsageEvent[] | null) ?? [];
   const guardianLinks =
     (guardianLinksResult.data as GuardianLink[] | null) ?? [];
+  const supportInquiries =
+    (supportInquiriesResult.data as SupportInquiry[] | null) ?? [];
   const deletionRequests =
     (deletionRequestsResult.data as DeletionRequest[] | null) ?? [];
 
@@ -283,7 +318,8 @@ export default async function AdminPage({
             <AdminNav href="#billing" icon="₩" label="구독·결제" />
             <AdminNav href="#ai-operations" icon="✦" label="AI 운영" />
             <AdminNav href="/admin/performance" icon="↗" label="성적·비교 분석" />
-            <AdminNav href="#requests" icon="◫" label="처리 요청" />
+            <AdminNav href="#support-inquiries" icon="?" label="이용문의" />
+            <AdminNav href="#requests" icon="◫" label="삭제 요청" />
           </nav>
           <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-4">
             <p className="text-xs font-medium text-slate-300">관리자 세션</p>
@@ -438,12 +474,82 @@ export default async function AdminPage({
                   href="#ai-operations"
                 />
                 <ActionItem
+                  count={supportInquiries.length}
+                  label="이용문의"
+                  tone="slate"
+                  href="#support-inquiries"
+                />
+                <ActionItem
                   count={deletionRequests.length}
                   label="계정 삭제 요청"
                   tone="slate"
                   href="#requests"
                 />
               </div>
+            </div>
+          </section>
+
+          <section
+            id="support-inquiries"
+            className="scroll-mt-6 rounded-3xl border border-slate-200 bg-white shadow-sm"
+          >
+            <div className="border-b border-slate-100 p-5 sm:p-6">
+              <SectionTitle
+                eyebrow="Customer support"
+                title="이용문의"
+                description="회원이 접수한 문의와 운영자 메일 알림 상태를 확인합니다."
+              />
+            </div>
+            <div className="divide-y divide-slate-100">
+              {supportInquiries.map((inquiry) => {
+                const profile = profileById.get(inquiry.user_id);
+                return (
+                  <div key={inquiry.id} className="px-5 py-5 sm:px-6">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-3">
+                          <Avatar label={profile?.display_name ?? profile?.email ?? "U"} />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold">
+                              {profile?.display_name ?? "이름 미등록"} · {profile?.email ?? inquiry.user_id}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {SUPPORT_CATEGORY_LABELS[inquiry.category]} · {formatDateTime(inquiry.requested_at)} · 메일 {supportEmailStatusLabel(inquiry.email_notification_status)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-4 rounded-2xl bg-slate-50 p-4">
+                          <p className="text-sm font-semibold">{inquiry.subject}</p>
+                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+                            {inquiry.message}
+                          </p>
+                        </div>
+                      </div>
+                      <form action={resolveSupportInquiry} className="flex shrink-0 gap-2">
+                        <input type="hidden" name="inquiryId" value={inquiry.id} />
+                        <select
+                          name="status"
+                          defaultValue={inquiry.status}
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                        >
+                          <option value="received">접수</option>
+                          <option value="in_progress">확인 중</option>
+                          <option value="answered">답변 완료</option>
+                          <option value="closed">종료</option>
+                        </select>
+                        <button className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+                          반영
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                );
+              })}
+              {supportInquiries.length === 0 && (
+                <div className="p-8">
+                  <EmptyState text="확인할 이용문의가 없습니다." />
+                </div>
+              )}
             </div>
           </section>
 
@@ -1197,6 +1303,18 @@ function formatDateTime(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function supportEmailStatusLabel(
+  status: SupportInquiry["email_notification_status"],
+) {
+  const labels: Record<SupportInquiry["email_notification_status"], string> = {
+    pending: "전송 대기",
+    sent: "전송 완료",
+    failed: "전송 실패",
+    not_configured: "설정 필요",
+  };
+  return labels[status];
 }
 
 function compactNumber(value: number) {

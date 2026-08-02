@@ -36,7 +36,7 @@ export default function TermsPage() {
         점검, 보안, 외부 AI·클라우드 사업자의 장애 등으로 서비스가 일시 중단될 수 있습니다. 중요한
         변경은 합리적인 방법으로 사전 고지합니다.
       </Section>
-      <Section title="8. 문의">
+      <Section id="support" title="8. 문의">
         고객지원 이메일과 사업자 정보는 유료 서비스 출시 전에 본 조항에 추가합니다.
       </Section>
     </LegalDocument>
@@ -62,9 +62,17 @@ function LegalDocument({
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  id,
+  title,
+  children,
+}: {
+  id?: string;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section>
+    <section id={id}>
       <h2 className="text-lg font-semibold">{title}</h2>
       <p className="mt-2 whitespace-pre-line leading-7 text-neutral-600 dark:text-neutral-400">{children}</p>
     </section>

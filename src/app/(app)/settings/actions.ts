@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendSupportInquiryNotification } from "@/lib/support-email";
 
 type InvitationDirection =
   | "child_invites_guardian"
@@ -500,6 +501,94 @@ export async function requestAccountDeletion(formData: FormData) {
 
   revalidatePath("/settings");
   redirect("/settings?success=" + encodeURIComponent("계정 삭제 요청을 접수했습니다."));
+}
+
+export async function submitSupportInquiry(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const category = String(formData.get("category") ?? "service").trim();
+  const subject = String(formData.get("subject") ?? "").trim();
+  const message = String(formData.get("message") ?? "").trim();
+  const allowedCategories = new Set([
+    "service",
+    "account",
+    "billing",
+    "technical",
+    "other",
+  ]);
+
+  if (!allowedCategories.has(category)) {
+    redirect("/settings?error=" + encodeURIComponent("문의 유형을 다시 선택해 주세요."));
+  }
+  if (subject.length < 2 || subject.length > 120) {
+    redirect("/settings?error=" + encodeURIComponent("문의 제목은 2~120자로 입력해 주세요."));
+  }
+  if (message.length < 10 || message.length > 5000) {
+    redirect("/settings?error=" + encodeURIComponent("문의 내용은 10~5,000자로 입력해 주세요."));
+  }
+
+  const { data: inquiry, error: insertError } = await supabase
+    .from("support_inquiries")
+    .insert({
+      user_id: user.id,
+      category,
+      subject,
+      message,
+    })
+    .select("id")
+    .single();
+
+  if (insertError || !inquiry) {
+    redirect(
+      "/settings?error=" +
+        encodeURIComponent(insertError?.message ?? "이용문의를 접수하지 못했습니다."),
+    );
+  }
+
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("display_name, email")
+    .eq("id", user.id)
+    .maybeSingle();
+  const memberEmail = profile?.email ?? user.email ?? "이메일 미등록";
+
+  let notification:
+    | Awaited<ReturnType<typeof sendSupportInquiryNotification>>
+    | { status: "failed"; error: string };
+  try {
+    notification = await sendSupportInquiryNotification({
+      inquiryId: inquiry.id,
+      category,
+      subject,
+      message,
+      memberName: profile?.display_name ?? "이름 미등록",
+      memberEmail,
+    });
+  } catch (error) {
+    notification = {
+      status: "failed",
+      error: error instanceof Error ? error.message : "메일 알림 발송 중 오류가 발생했습니다.",
+    };
+  }
+
+  await admin
+    .from("support_inquiries")
+    .update({
+      email_notification_status: notification.status,
+      email_notification_id:
+        notification.status === "sent" ? notification.id : null,
+      email_notification_error:
+        notification.status === "sent" ? null : notification.error.slice(0, 1000),
+    })
+    .eq("id", inquiry.id);
+
+  revalidatePath("/admin");
+  redirect("/settings?success=" + encodeURIComponent("이용문의를 접수했습니다. 운영자가 확인 후 안내드립니다."));
 }
 
 export async function removeChildConnection(formData: FormData) {

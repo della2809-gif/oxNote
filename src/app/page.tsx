@@ -55,6 +55,7 @@ export default function Home() {
           ))}
         </div>
         <div className="mt-10 flex justify-center gap-4 text-xs text-neutral-500">
+          <Link href="/settings?panel=support" className="underline">이용문의</Link>
           <Link href="/terms" className="underline">이용약관</Link>
           <Link href="/privacy" className="underline">개인정보 처리방침</Link>
         </div>
