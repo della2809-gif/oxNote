@@ -501,3 +501,99 @@ export async function requestAccountDeletion(formData: FormData) {
   revalidatePath("/settings");
   redirect("/settings?success=" + encodeURIComponent("계정 삭제 요청을 접수했습니다."));
 }
+
+export async function removeChildConnection(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const linkId = String(formData.get("linkId") ?? "").trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(linkId)) {
+    redirect("/settings?error=" + encodeURIComponent("삭제할 자녀 연결 정보가 올바르지 않습니다."));
+  }
+
+  const admin = createAdminClient();
+  const { data: link, error: linkError } = await admin
+    .from("guardian_links")
+    .select("id, child_user_id, guardian_user_id, relationship, status")
+    .eq("id", linkId)
+    .maybeSingle();
+
+  if (linkError || !link) {
+    redirect("/settings?error=" + encodeURIComponent("자녀 연결 정보를 찾지 못했습니다."));
+  }
+  if (link.guardian_user_id !== user.id) {
+    redirect("/settings?error=" + encodeURIComponent("보호자 본인만 자녀 연결을 삭제할 수 있습니다."));
+  }
+  if (link.status !== "active") {
+    redirect("/settings?error=" + encodeURIComponent("이미 삭제되었거나 활성 상태가 아닌 연결입니다."));
+  }
+
+  const revokedAt = new Date().toISOString();
+  const { data: revokedLink, error: revokeError } = await admin
+    .from("guardian_links")
+    .update({
+      status: "revoked",
+      revoked_at: revokedAt,
+      can_view_learning: false,
+      can_manage_account: false,
+      can_manage_billing: false,
+    })
+    .eq("id", link.id)
+    .eq("guardian_user_id", user.id)
+    .eq("status", "active")
+    .select("id")
+    .maybeSingle();
+
+  if (revokeError || !revokedLink) {
+    redirect("/settings?error=" + encodeURIComponent("자녀 연결을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요."));
+  }
+
+  const { data: remainingGuardian } = await admin
+    .from("guardian_links")
+    .select("guardian_user_id")
+    .eq("child_user_id", link.child_user_id)
+    .eq("status", "active")
+    .order("accepted_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (remainingGuardian) {
+    await admin
+      .from("profiles")
+      .update({
+        guardian_consent_status: "granted",
+        guardian_consent_granted_by: remainingGuardian.guardian_user_id,
+      })
+      .eq("id", link.child_user_id)
+      .eq("guardian_required", true);
+  } else {
+    await admin
+      .from("profiles")
+      .update({
+        guardian_consent_status: "pending",
+        guardian_consent_granted_at: null,
+        guardian_consent_granted_by: null,
+      })
+      .eq("id", link.child_user_id)
+      .eq("guardian_required", true);
+  }
+
+  await admin.from("guardian_activity_logs").insert({
+    guardian_link_id: link.id,
+    actor_user_id: user.id,
+    child_user_id: link.child_user_id,
+    action: "guardian_connection_revoked",
+    metadata: {
+      removed_by: "guardian",
+      relationship: link.relationship,
+      revoked_at: revokedAt,
+    },
+  });
+
+  revalidatePath("/settings");
+  revalidatePath("/dashboard");
+  redirect("/settings?success=" + encodeURIComponent("자녀 연결을 삭제했습니다. 자녀 계정에서도 연결 정보가 제거되었습니다."));
+}

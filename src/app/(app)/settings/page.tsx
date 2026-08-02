@@ -5,12 +5,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { canExportLearningData } from "@/lib/data-export-access";
 import {
   createFamilyInvitation,
+  removeChildConnection,
   requestAccountDeletion,
   sendFamilyInvitationEmail,
 } from "./actions";
 import { CopyInviteLinkButton } from "./copy-invite-link-button";
 import { BirthDateInput } from "./birth-date-input";
 import { InviteEmailVerification } from "./invite-email-verification";
+import { RemoveChildConnectionButton } from "./remove-child-connection-button";
 
 export default async function SettingsPage({
   searchParams,
@@ -57,6 +59,7 @@ export default async function SettingsPage({
         "id, child_user_id, guardian_user_id, relationship, status, can_view_learning, can_manage_account, can_manage_billing, accepted_at, created_at",
       )
       .or(`child_user_id.eq.${user.id},guardian_user_id.eq.${user.id}`)
+      .neq("status", "revoked")
       .order("created_at", { ascending: false }),
     supabase
       .from("subscriptions")
@@ -335,6 +338,14 @@ export default async function SettingsPage({
                     {link.can_manage_account ? "허용" : "차단"} · 결제 관리{" "}
                     {link.can_manage_billing ? "허용" : "차단"}
                   </p>
+                  {isGuardian && link.status === "active" && (
+                    <form action={removeChildConnection} className="mt-3 flex justify-end">
+                      <input type="hidden" name="linkId" value={link.id} />
+                      <RemoveChildConnectionButton
+                        childName={relatedProfile?.display_name ?? "연결된 자녀"}
+                      />
+                    </form>
+                  )}
                 </div>
               );
             })
