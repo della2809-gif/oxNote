@@ -51,17 +51,25 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/dashboard") ||
     request.nextUrl.pathname.startsWith("/notes") ||
     request.nextUrl.pathname.startsWith("/review") ||
-    request.nextUrl.pathname.startsWith("/subjects");
+    request.nextUrl.pathname.startsWith("/subjects") ||
+    request.nextUrl.pathname.startsWith("/settings");
 
   if (!isAuthenticated && isProtectedRoute) {
+    const next = `${request.nextUrl.pathname}${request.nextUrl.search}`;
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    url.search = "";
+    url.searchParams.set("next", next);
     return redirectWithRefreshedCookies(url);
   }
 
   if (isAuthenticated && isAuthRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    const requestedNext = request.nextUrl.searchParams.get("next");
+    const next =
+      requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
+        ? requestedNext
+        : "/dashboard";
+    const url = new URL(next, request.url);
     return redirectWithRefreshedCookies(url);
   }
 
