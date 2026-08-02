@@ -282,6 +282,7 @@ export default async function AdminPage({
             <AdminNav href="#guardians" icon="♧" label="보호자·동의" />
             <AdminNav href="#billing" icon="₩" label="구독·결제" />
             <AdminNav href="#ai-operations" icon="✦" label="AI 운영" />
+            <AdminNav href="/admin/performance" icon="↗" label="성적·비교 분석" />
             <AdminNav href="#requests" icon="◫" label="처리 요청" />
           </nav>
           <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-4">
