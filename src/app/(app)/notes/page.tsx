@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { Note, NoteAiDetails, Subject } from "@/lib/types";
 import { BulkNotesForm } from "./BulkNotesForm";
+import SortMenu from "./SortMenu";
 
 type ClassificationKey = "unit" | "source" | "type" | "concept" | "reason";
 type SortOrder = "newest" | "oldest";
@@ -220,15 +221,11 @@ export default async function NotesPage({
 
             <span className="hidden h-7 w-px bg-slate-200 sm:block" />
 
-            <details className="relative">
-              <summary className="cursor-pointer list-none rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:border-slate-300 [&::-webkit-details-marker]:hidden">
-                {sortOrder === "newest" ? "최신순" : "과거순"}⌄
-              </summary>
-              <div className="absolute right-0 z-20 mt-2 w-32 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
-                <Link href={notesHref({ subject: subjectFilter, classification, value: valueFilter, query: searchQuery, sort: "newest" })} className={`block rounded-lg px-3 py-2 text-sm ${sortOrder === "newest" ? "bg-slate-900 font-bold text-white" : "text-slate-600 hover:bg-slate-50"}`}>최신순</Link>
-                <Link href={notesHref({ subject: subjectFilter, classification, value: valueFilter, query: searchQuery, sort: "oldest" })} className={`block rounded-lg px-3 py-2 text-sm ${sortOrder === "oldest" ? "bg-slate-900 font-bold text-white" : "text-slate-600 hover:bg-slate-50"}`}>과거순</Link>
-              </div>
-            </details>
+            <SortMenu
+              sortOrder={sortOrder}
+              newestHref={notesHref({ subject: subjectFilter, classification, value: valueFilter, query: searchQuery, sort: "newest" })}
+              oldestHref={notesHref({ subject: subjectFilter, classification, value: valueFilter, query: searchQuery, sort: "oldest" })}
+            />
 
             <details className="relative">
               <summary className={`cursor-pointer list-none rounded-full border px-4 py-2 text-sm font-bold transition [&::-webkit-details-marker]:hidden ${searchQuery ? "border-indigo-600 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"}`}>
