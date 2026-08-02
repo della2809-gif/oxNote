@@ -100,6 +100,7 @@ export default async function NoteDetailPage({
     signedFileUrl(supabase, typedNote.source_file_url),
     signedFileUrl(supabase, typedNote.student_solution_file_url),
   ]);
+  const hasStudentSolution = Boolean(solutionFileUrl || typedNote.my_answer);
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-6xl space-y-4 overflow-x-clip text-slate-900 sm:space-y-6">
@@ -264,44 +265,88 @@ export default async function NoteDetailPage({
         </section>
       </div>
 
-      {details?.solutionSteps.length ? (
-        <section className="w-full min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-bold text-indigo-600">단계별 풀이</p>
-              <h2 className="mt-3 break-keep text-xl font-bold sm:text-2xl">풀이 흐름을 순서대로 따라가 보세요</h2>
-            </div>
-            {details.answerSummary && (
-              <span className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-600">
-                정답 · {details.answerSummary}
-              </span>
-            )}
+      <section className="w-full min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-bold text-indigo-600">풀이 비교</p>
+            <h2 className="mt-3 break-keep text-xl font-bold sm:text-2xl">학생 풀이와 정답 풀이를 함께 확인해요</h2>
           </div>
+          <span className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+            정답 · {details?.answerSummary || typedNote.correct_answer}
+          </span>
+        </div>
 
-          <div className="mt-6 divide-y divide-slate-100">
-            {details.solutionSteps.map((step, index) => (
-              <div key={`${step.title}-${index}`} className="grid gap-4 py-5 sm:grid-cols-[44px_1fr]">
-                <span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-sm font-bold text-indigo-600">{index + 1}</span>
-                <div>
-                  <p className="text-xs font-bold text-indigo-500">{step.title}</p>
-                  <p className="mt-2 text-sm font-semibold text-slate-800">{step.explanation}</p>
-                  {step.formula && <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-600">{step.formula}</p>}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {details.answerSummary && (
-            <div className="mt-2 flex items-center gap-4 rounded-2xl bg-emerald-50 p-4">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-500 font-bold text-white">✓</span>
+        <div className="mt-6 grid gap-5 lg:grid-cols-2">
+          <article className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-bold text-emerald-600">풀이 결론</p>
-                <p className="mt-1 text-sm font-bold text-slate-800">{details.answerSummary}</p>
+                <p className="text-xs font-bold text-slate-500">학생 풀이</p>
+                <h3 className="mt-1 text-lg font-bold text-slate-900">내가 풀었던 과정</h3>
+              </div>
+              <span className={`rounded-full px-3 py-1 text-xs font-bold ${hasStudentSolution ? "bg-indigo-100 text-indigo-700" : "bg-slate-200 text-slate-500"}`}>
+                {hasStudentSolution ? "풀이 등록됨" : "풀이 없음"}
+              </span>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              {solutionFileUrl && (
+                <FilePreview
+                  url={solutionFileUrl}
+                  path={typedNote.student_solution_file_url}
+                  alt="학생 풀이 원본"
+                />
+              )}
+              {typedNote.my_answer && (
+                <div className="rounded-xl bg-white p-4">
+                  <p className="text-xs font-bold text-slate-500">내가 쓴 답</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-700">{typedNote.my_answer}</p>
+                </div>
+              )}
+              {!hasStudentSolution && (
+                <div className="grid min-h-40 place-items-center rounded-xl border border-dashed border-slate-300 bg-white px-4 text-center text-sm text-slate-500">
+                  다음 문제 분석 때 학생 풀이 사진이나 PDF를 함께 올리면 풀이 과정을 비교할 수 있어요.
+                </div>
+              )}
+            </div>
+          </article>
+
+          <article className="min-w-0 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 sm:p-5">
+            <div>
+              <p className="text-xs font-bold text-emerald-600">정답 풀이</p>
+              <h3 className="mt-1 text-lg font-bold text-slate-900">올바른 풀이 과정</h3>
+            </div>
+
+            {details?.solutionSteps.length ? (
+              <div className="mt-4 divide-y divide-emerald-100">
+                {details.solutionSteps.map((step, index) => (
+                  <div key={`${step.title}-${index}`} className="grid gap-3 py-4 sm:grid-cols-[36px_1fr]">
+                    <span className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-500 text-xs font-bold text-white">{index + 1}</span>
+                    <div>
+                      <p className="text-xs font-bold text-emerald-700">{step.title}</p>
+                      <p className="mt-1.5 text-sm font-semibold leading-6 text-slate-800">{step.explanation}</p>
+                      {step.formula && <p className="mt-2 whitespace-pre-wrap rounded-lg bg-white px-3 py-2 text-sm leading-7 text-slate-700">{step.formula}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 rounded-xl bg-white p-4">
+                <p className="text-xs font-bold text-emerald-700">정답</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-7 text-slate-800">{typedNote.correct_answer}</p>
+                {typedNote.ai_analysis && <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-600">{typedNote.ai_analysis}</p>}
+              </div>
+            )}
+
+            <div className="mt-4 flex items-start gap-3 rounded-xl bg-emerald-100 p-4">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-500 font-bold text-white">✓</span>
+              <div>
+                <p className="text-xs font-bold text-emerald-700">풀이 결론</p>
+                <p className="mt-1 text-sm font-bold leading-6 text-slate-900">{details?.answerSummary || typedNote.correct_answer}</p>
               </div>
             </div>
-          )}
-        </section>
-      ) : null}
+          </article>
+        </div>
+      </section>
 
       {details?.confusionPoints.length ? (
         <section className="w-full min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-8">
@@ -356,28 +401,6 @@ export default async function NoteDetailPage({
           <p className="mt-2 text-right text-xs text-slate-400">최대 2,000자 · 상단 저장 버튼으로 저장</p>
         </form>
       </section>
-
-      {(solutionFileUrl || typedNote.my_answer) && (
-        <section className="w-full min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-8">
-          <p className="text-sm font-bold text-indigo-600">학생 풀이</p>
-          <h2 className="mt-3 text-xl font-bold">내가 풀었던 과정을 함께 확인해요</h2>
-          <div className="mt-5 grid gap-5 lg:grid-cols-2">
-            {solutionFileUrl && (
-              <FilePreview
-                url={solutionFileUrl}
-                path={typedNote.student_solution_file_url}
-                alt="학생 풀이 원본"
-              />
-            )}
-            {typedNote.my_answer && (
-              <div className="rounded-2xl bg-slate-50 p-5">
-                <p className="text-xs font-bold text-slate-500">내가 쓴 답</p>
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">{typedNote.my_answer}</p>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
 
       <section className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm shadow-sm sm:p-5">
         <span className="text-slate-500">복습 단계 · Box {typedNote.box_level} / 5</span>

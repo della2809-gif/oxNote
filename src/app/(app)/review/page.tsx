@@ -14,6 +14,9 @@ type ReviewGoal = {
   topics: string[];
 };
 
+// 추가 기능이 확정될 때까지 시험 목표 복습 메뉴를 노출하지 않습니다.
+const REVIEW_GOALS_ENABLED = false;
+
 function noteTopics(note: Note) {
   const details =
     note.ai_details && typeof note.ai_details === "object"
@@ -79,7 +82,9 @@ export default async function ReviewPage({
   const allNotes = (notesData as Note[] | null) ?? [];
   const subjects = (subjectsData as Subject[] | null) ?? [];
   const goals = (goalsData as ReviewGoal[] | null) ?? [];
-  const activeGoal = goals.find((goal) => goal.id === params.goal);
+  const activeGoal = REVIEW_GOALS_ENABLED
+    ? goals.find((goal) => goal.id === params.goal)
+    : undefined;
   const subjectMap = new Map(subjects.map((subject) => [subject.id, subject]));
   const availableTopics = Array.from(
     new Set(allNotes.flatMap(noteTopics)),
@@ -192,7 +197,8 @@ export default async function ReviewPage({
         </ul>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      {REVIEW_GOALS_ENABLED && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold">시험 목표 복습</h2>
@@ -273,7 +279,8 @@ export default async function ReviewPage({
             </div>
           </div>
         )}
-      </section>
+        </section>
+      )}
     </div>
   );
 }

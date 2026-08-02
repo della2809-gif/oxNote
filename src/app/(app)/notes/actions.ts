@@ -577,6 +577,7 @@ export async function updateNoteMistakeReason(formData: FormData) {
 
   revalidatePath(`/notes/${id}`);
   revalidatePath("/notes");
+  redirect("/notes?classification=reason");
 }
 
 export async function updateNoteExtractedContent(formData: FormData) {
@@ -619,6 +620,7 @@ export async function updateNoteExtractedContent(formData: FormData) {
   revalidatePath("/notes");
   revalidatePath("/review");
   revalidatePath("/dashboard");
+  redirect("/notes?classification=reason");
 }
 
 export async function submitReview(formData: FormData) {
