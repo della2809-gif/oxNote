@@ -70,7 +70,7 @@ export default async function AppLayout({
       : Promise.resolve({ data: [], count: 0 }),
     admin
       .from("family_invitations")
-      .select("id", { count: "exact", head: true })
+      .select("id")
       .eq("inviter_user_id", user.id)
       .eq("status", "pending")
       .gt("expires_at", now.toISOString()),
@@ -153,26 +153,35 @@ export default async function AppLayout({
         : `${incomingInvitation.child_name ?? "자녀"} 계정 연결 내용을 확인해 주세요.`,
       href: `/guardian/invite/pending/${incomingInvitation.id}`,
       actionable: true,
+      dismissible: true,
       tone: "amber",
     });
   }
-  const outgoingInvitationCount = outgoingInvitationsResult.count ?? 0;
+  const outgoingInvitationIds = (outgoingInvitationsResult.data ?? [])
+    .map((invitation) => invitation.id)
+    .sort();
+  const outgoingInvitationCount = outgoingInvitationIds.length;
   if (outgoingInvitationCount > 0) {
     notifications.push({
-      id: "outgoing-family",
+      id: `outgoing-family-${outgoingInvitationIds.join("-")}`,
       category: "보호자 연결",
       title: `상대방 확인을 기다리는 초대가 ${outgoingInvitationCount}건 있습니다`,
       description: "설정에서 초대 링크를 다시 보내거나 연결 상태를 확인할 수 있습니다.",
       href: "/settings",
+      dismissible: true,
       tone: "indigo",
     });
   } else if ((guardianLinksResult.data?.length ?? 0) > 0) {
+    const guardianLinkIds = (guardianLinksResult.data ?? [])
+      .map((link) => link.id)
+      .sort();
     notifications.push({
-      id: "active-family-links",
+      id: `active-family-links-${guardianLinkIds.join("-")}`,
       category: "보호자 연결",
       title: `보호자·자녀 계정 ${guardianLinksResult.data?.length ?? 0}개가 연결되어 있습니다`,
       description: "학습 열람과 계정·결제 관리 권한을 설정에서 확인할 수 있습니다.",
       href: "/settings",
+      dismissible: true,
       tone: "emerald",
     });
   }
@@ -209,7 +218,10 @@ export default async function AppLayout({
             </nav>
           </div>
           <div className="flex shrink-0 items-center gap-1 sm:gap-3">
-            <NotificationBell notifications={notifications} />
+            <NotificationBell
+              notifications={notifications}
+              storageKey={`xonote:dismissed-notifications:${user.id}`}
+            />
             <form action={signOut} className="flex items-center gap-3">
               <span className="hidden max-w-[220px] truncate text-sm font-medium text-slate-600 sm:block dark:text-neutral-300">
                 {displayName}

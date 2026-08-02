@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
 export type HeaderNotification = {
   id: string;
@@ -7,6 +10,7 @@ export type HeaderNotification = {
   description: string;
   href: string;
   actionable?: boolean;
+  dismissible?: boolean;
   tone?: "indigo" | "amber" | "red" | "emerald";
 };
 
@@ -17,8 +21,48 @@ const toneClasses = {
   emerald: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
 };
 
-export function NotificationBell({ notifications }: { notifications: HeaderNotification[] }) {
-  const actionableCount = notifications.filter((notification) => notification.actionable).length;
+export function NotificationBell({
+  notifications,
+  storageKey,
+}: {
+  notifications: HeaderNotification[];
+  storageKey: string;
+}) {
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      try {
+        const savedIds = JSON.parse(window.localStorage.getItem(storageKey) ?? "[]");
+        setDismissedIds(
+          new Set(Array.isArray(savedIds) ? savedIds.filter((id): id is string => typeof id === "string") : []),
+        );
+      } catch {
+        setDismissedIds(new Set());
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [storageKey]);
+
+  const visibleNotifications = useMemo(
+    () => notifications.filter((notification) => !dismissedIds.has(notification.id)),
+    [dismissedIds, notifications],
+  );
+  const actionableCount = visibleNotifications.filter((notification) => notification.actionable).length;
+
+  function dismissNotification(notificationId: string) {
+    setDismissedIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      nextIds.add(notificationId);
+      try {
+        window.localStorage.setItem(storageKey, JSON.stringify(Array.from(nextIds)));
+      } catch {
+        // The current view still removes the notification when storage is unavailable.
+      }
+      return nextIds;
+    });
+  }
 
   return (
     <details className="group relative">
@@ -51,7 +95,7 @@ export function NotificationBell({ notifications }: { notifications: HeaderNotif
         </div>
 
         <div className="max-h-[70vh] overflow-y-auto p-2">
-          {notifications.length === 0 ? (
+          {visibleNotifications.length === 0 ? (
             <div className="px-4 py-10 text-center">
               <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-neutral-900">
                 ✓
@@ -61,13 +105,16 @@ export function NotificationBell({ notifications }: { notifications: HeaderNotif
             </div>
           ) : (
             <div className="space-y-1">
-              {notifications.map((notification) => (
-                <Link
+              {visibleNotifications.map((notification) => (
+                <div
                   key={notification.id}
-                  href={notification.href}
-                  className="block rounded-xl px-3 py-3 transition hover:bg-slate-50 dark:hover:bg-neutral-900"
+                  className="flex items-start rounded-xl transition hover:bg-slate-50 dark:hover:bg-neutral-900"
                 >
-                  <div className="flex items-start gap-3">
+                  <Link
+                    href={notification.href}
+                    className="min-w-0 flex-1 px-3 py-3"
+                  >
+                    <div className="flex items-start gap-3">
                     <span className={`mt-0.5 shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold ${toneClasses[notification.tone ?? "indigo"]}`}>
                       {notification.category}
                     </span>
@@ -80,8 +127,20 @@ export function NotificationBell({ notifications }: { notifications: HeaderNotif
                         {notification.description}
                       </span>
                     </span>
-                  </div>
-                </Link>
+                    </div>
+                  </Link>
+                  {notification.dismissible && (
+                    <button
+                      type="button"
+                      onClick={() => dismissNotification(notification.id)}
+                      aria-label={`${notification.title} 알림 삭제`}
+                      title="알림 삭제"
+                      className="mr-2 mt-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
           )}

@@ -29,6 +29,7 @@ export default async function SettingsPage({
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+  const admin = createAdminClient();
 
   const [
     { data: profile },
@@ -79,7 +80,27 @@ export default async function SettingsPage({
     subscriptionIsActive && periodEnd
       ? Math.max(0, Math.ceil((periodEnd.getTime() - now.getTime()) / 86_400_000))
       : 0;
-  const admin = createAdminClient();
+  const relatedUserIds = Array.from(
+    new Set(
+      (guardianLinks ?? []).map((link) =>
+        link.guardian_user_id === user.id
+          ? link.child_user_id
+          : link.guardian_user_id,
+      ),
+    ),
+  );
+  const { data: relatedProfiles } = relatedUserIds.length
+    ? await admin
+        .from("profiles")
+        .select("id, display_name, email")
+        .in("id", relatedUserIds)
+    : { data: [] };
+  const relatedProfileById = new Map(
+    (relatedProfiles ?? []).map((relatedProfile) => [
+      relatedProfile.id,
+      relatedProfile,
+    ]),
+  );
   const { data: incomingInvitations } = user.email
     ? await admin
         .from("family_invitations")
@@ -284,16 +305,30 @@ export default async function SettingsPage({
           {(guardianLinks ?? []).length > 0 ? (
             guardianLinks?.map((link) => {
               const isGuardian = link.guardian_user_id === user.id;
+              const relatedUserId = isGuardian
+                ? link.child_user_id
+                : link.guardian_user_id;
+              const relatedProfile = relatedProfileById.get(relatedUserId);
               return (
                 <div
                   key={link.id}
                   className="rounded-lg bg-neutral-50 p-3 text-sm dark:bg-neutral-900"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="font-medium">
-                      {isGuardian ? "관리 중인 학습자" : "연결된 보호자"}
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <span className="text-xs font-medium text-neutral-500">
+                        {isGuardian ? "관리 중인 학습자" : "연결된 보호자"}
+                      </span>
+                      <p className="mt-1 font-semibold text-neutral-950 dark:text-neutral-50">
+                        {relatedProfile?.display_name ?? "이름 미등록"}
+                      </p>
+                      <p className="mt-1 break-all text-xs text-neutral-600 dark:text-neutral-400">
+                        {relatedProfile?.email ?? "이메일 미등록"}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-white px-2.5 py-1 text-xs text-neutral-500 dark:bg-neutral-800">
+                      {link.status}
                     </span>
-                    <span className="text-neutral-500">{link.status}</span>
                   </div>
                   <p className="mt-2 text-xs text-neutral-500">
                     학습 열람 {link.can_view_learning ? "허용" : "차단"} · 계정 관리{" "}
