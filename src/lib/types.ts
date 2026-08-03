@@ -50,6 +50,15 @@ export type NoteConfusionPoint = {
   correction: string;
 };
 
+export type MathVerification = {
+  status: "passed" | "corrected" | "needs_review" | "not_applicable";
+  checkedCount: number;
+  correctedCount: number;
+  corrections: string[];
+  warnings: string[];
+  replacements?: Array<{ from: string; to: string }>;
+};
+
 export type NoteAiDetails = {
   title: string;
   subject: string;
@@ -61,6 +70,7 @@ export type NoteAiDetails = {
   solutionSteps: NoteSolutionStep[];
   answerSummary: string;
   confusionPoints: NoteConfusionPoint[];
+  mathVerification?: MathVerification;
 };
 
 export type Plan = {

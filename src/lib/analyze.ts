@@ -1,4 +1,8 @@
 import { getOpenAI, GPT_MODEL } from "./openai";
+import {
+  applyMathVerificationCorrections,
+  verifyAndCorrectMathDetails,
+} from "./math-verifier";
 import type { NoteAiDetails } from "./types";
 
 export type TextAnalysisResult = {
@@ -29,6 +33,9 @@ const TUTOR_INSTRUCTIONS =
   "수학 문제의 solution_steps에는 조건 대입, 식 변형, 해의 조건, 가능한 값의 확인과 최종 검산을 " +
   "생략하지 말고 순서대로 작성해. 학생 풀이와 정답 풀이는 명확히 구분하고, 학생 풀이가 맞는 부분도 " +
   "인정한 뒤 처음 잘못된 단계와 올바른 계산을 연결해서 설명해. " +
+  "분수, 소수, 방정식, 단위 변환이 포함된 각 핵심 계산은 formula에 '계산식 = 중간값 = 최종값 단위' " +
+  "형태의 일반 텍스트로 적어. 정확히 같은 값에만 등호를 사용하고 반올림이나 근삿값에는 ≈를 사용해. " +
+  "대분수는 먼저 가분수로 바꾸고, 방정식의 해는 원래 식에 대입해 검산해. " +
   "수식은 읽기 쉬운 일반 텍스트로 쓰고 확인할 수 없는 개인정보는 추측하지 마. mistake_type은 " +
   "'개념 이해 부족', '계산 실수', '문제 오독', '암기 부족' 등으로 짧게 요약하고, " +
   "tags는 문제와 관련된 핵심 개념 키워드 배열로 만들어.";
@@ -295,37 +302,42 @@ export async function analyzeFromFile({
 
   const parsed = JSON.parse(extractOutputText(response));
   const details = parsed.details ?? {};
+  const verifiedDetails = verifyAndCorrectMathDetails({
+    title: details.title ?? "",
+    subject: details.subject ?? "",
+    gradeLevel: details.grade_level ?? "",
+    curriculum: details.curriculum ?? "",
+    difficulty: details.difficulty ?? "",
+    questionType: details.question_type ?? "",
+    coreConcepts: details.core_concepts ?? [],
+    solutionSteps: (details.solution_steps ?? []).map(
+      (step: { title?: string; explanation?: string; formula?: string }) => ({
+        title: step.title ?? "",
+        explanation: step.explanation ?? "",
+        formula: step.formula ?? "",
+      }),
+    ),
+    answerSummary: details.answer_summary ?? "",
+    confusionPoints: (details.confusion_points ?? []).map(
+      (point: { title?: string; explanation?: string; correction?: string }) => ({
+        title: point.title ?? "",
+        explanation: point.explanation ?? "",
+        correction: point.correction ?? "",
+      }),
+    ),
+  });
+  const correctedAnswer = applyMathVerificationCorrections(
+    parsed.correct_answer ?? "",
+    verifiedDetails.mathVerification,
+  );
   return {
     question: parsed.question ?? "",
     myAnswer: parsed.student_answer ?? "",
-    correctAnswer: parsed.correct_answer ?? "",
+    correctAnswer: correctedAnswer,
     analysis: parsed.analysis ?? "",
     mistakeType: parsed.mistake_type ?? "",
     tags: parsed.tags ?? [],
-    details: {
-      title: details.title ?? "",
-      subject: details.subject ?? "",
-      gradeLevel: details.grade_level ?? "",
-      curriculum: details.curriculum ?? "",
-      difficulty: details.difficulty ?? "",
-      questionType: details.question_type ?? "",
-      coreConcepts: details.core_concepts ?? [],
-      solutionSteps: (details.solution_steps ?? []).map(
-        (step: { title?: string; explanation?: string; formula?: string }) => ({
-          title: step.title ?? "",
-          explanation: step.explanation ?? "",
-          formula: step.formula ?? "",
-        }),
-      ),
-      answerSummary: details.answer_summary ?? "",
-      confusionPoints: (details.confusion_points ?? []).map(
-        (point: { title?: string; explanation?: string; correction?: string }) => ({
-          title: point.title ?? "",
-          explanation: point.explanation ?? "",
-          correction: point.correction ?? "",
-        }),
-      ),
-    },
+    details: verifiedDetails,
     succeeded: true,
     usage: {
       inputTokens: response.usage?.input_tokens ?? 0,

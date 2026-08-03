@@ -23,6 +23,13 @@ function asDetails(value: unknown): NoteAiDetails | null {
     solutionSteps: details.solutionSteps,
     answerSummary: details.answerSummary ?? "",
     confusionPoints: Array.isArray(details.confusionPoints) ? details.confusionPoints : [],
+    mathVerification:
+      details.mathVerification &&
+      ["passed", "corrected", "needs_review", "not_applicable"].includes(
+        details.mathVerification.status,
+      )
+        ? details.mathVerification
+        : undefined,
   };
 }
 
@@ -311,10 +318,37 @@ export default async function NoteDetailPage({
           </article>
 
           <article className="min-w-0 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 sm:p-5">
-            <div>
-              <p className="text-xs font-bold text-emerald-600">정답 풀이</p>
-              <h3 className="mt-1 text-lg font-bold text-slate-900">올바른 풀이 과정</h3>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold text-emerald-600">정답 풀이</p>
+                <h3 className="mt-1 text-lg font-bold text-slate-900">올바른 풀이 과정</h3>
+              </div>
+              {details?.mathVerification &&
+                details.mathVerification.status !== "not_applicable" && (
+                  <MathVerificationBadge verification={details.mathVerification} />
+                )}
             </div>
+
+            {details?.mathVerification?.status === "needs_review" && (
+              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                <p className="font-bold">계산기 검산에서 확인이 필요한 식을 찾았습니다.</p>
+                {details.mathVerification.warnings.map((warning) => (
+                  <p key={warning} className="mt-1 text-xs leading-5">· {warning}</p>
+                ))}
+              </div>
+            )}
+
+            {details?.mathVerification?.status === "corrected" &&
+              details.mathVerification.corrections.length > 0 && (
+                <details className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+                  <summary className="cursor-pointer font-bold">
+                    자동 수정된 계산 {details.mathVerification.correctedCount}개 보기
+                  </summary>
+                  {details.mathVerification.corrections.map((correction) => (
+                    <p key={correction} className="mt-2 text-xs leading-5">· {correction}</p>
+                  ))}
+                </details>
+              )}
 
             {details?.solutionSteps.length ? (
               <div className="mt-4 divide-y divide-emerald-100">
@@ -411,5 +445,36 @@ export default async function NoteDetailPage({
         )}
       </section>
     </div>
+  );
+}
+
+function MathVerificationBadge({
+  verification,
+}: {
+  verification: NonNullable<NoteAiDetails["mathVerification"]>;
+}) {
+  const config = {
+    passed: {
+      label: `계산기 검산 완료 · ${verification.checkedCount}개`,
+      className: "bg-emerald-100 text-emerald-700",
+    },
+    corrected: {
+      label: `계산 오류 자동 수정 · ${verification.correctedCount}개`,
+      className: "bg-sky-100 text-sky-700",
+    },
+    needs_review: {
+      label: "계산 검토 필요",
+      className: "bg-amber-100 text-amber-800",
+    },
+    not_applicable: {
+      label: "",
+      className: "",
+    },
+  }[verification.status];
+
+  return (
+    <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${config.className}`}>
+      {config.label}
+    </span>
   );
 }
