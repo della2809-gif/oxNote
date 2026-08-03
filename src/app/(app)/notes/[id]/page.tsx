@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import MathText from "@/components/MathText";
 import { createClient } from "@/lib/supabase/server";
 import type { Note, NoteAiDetails, Subject } from "@/lib/types";
 import {
@@ -242,7 +243,7 @@ export default async function NoteDetailPage({
             <FilePreview url={problemFileUrl} path={typedNote.source_file_url} alt="업로드한 문제 원본" />
           ) : (
             <div className="rounded-2xl bg-slate-50 p-6">
-              <p className="whitespace-pre-wrap text-sm leading-7 text-slate-700">{typedNote.question}</p>
+              <p className="whitespace-pre-wrap text-sm leading-7 text-slate-700"><MathText>{typedNote.question}</MathText></p>
             </div>
           )}
         </section>
@@ -259,21 +260,6 @@ export default async function NoteDetailPage({
               {details.difficulty && <span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600">난이도 {details.difficulty}</span>}
             </div>
           )}
-
-          <div className="mt-7 rounded-2xl bg-slate-50 p-5">
-            <p className="text-xs font-bold text-slate-500">인식한 문제의 핵심</p>
-            <p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-7 text-slate-800">{typedNote.question}</p>
-            {details?.recognizedConditions?.length ? (
-              <ul className="mt-4 space-y-2 border-t border-slate-200 pt-4">
-                {details.recognizedConditions.map((condition, index) => (
-                  <li key={`${condition}-${index}`} className="flex gap-2 text-xs leading-5 text-slate-600">
-                    <span className="mt-0.5 text-indigo-500">✓</span>
-                    <span>{condition}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
 
           {details && (
             <div className="mt-5 overflow-hidden rounded-2xl bg-slate-900 px-4 py-4 text-white sm:px-5">
@@ -292,7 +278,6 @@ export default async function NoteDetailPage({
 
       {details &&
         ((details.learningElements?.length ?? 0) > 0 ||
-          details.gradeRationale ||
           details.difficultyRationale) && (
           <section className="w-full min-w-0 overflow-hidden rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-8">
             <p className="text-sm font-bold text-indigo-600">GPT 학습 분석</p>
@@ -304,31 +289,20 @@ export default async function NoteDetailPage({
               <div className="mt-6 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 {details.learningElements.map((element, index) => (
                   <article key={`${element.concept}-${index}`} className="rounded-2xl bg-indigo-50/70 p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="font-bold text-slate-900">{element.concept}</h3>
-                      {element.learningStage && (
-                        <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-indigo-600">
-                          {element.learningStage}
-                        </span>
-                      )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-bold text-slate-900"><MathText>{element.concept}</MathText></h3>
                     </div>
-                    <p className="mt-3 text-sm leading-6 text-slate-600">{element.explanation}</p>
+                    <p className="mt-3 text-sm leading-6 text-slate-600"><MathText>{element.explanation}</MathText></p>
                   </article>
                 ))}
               </div>
             ) : null}
 
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
-              {details.gradeRationale && (
-                <article className="rounded-2xl border border-slate-200 p-4 sm:p-5">
-                  <p className="text-xs font-bold text-slate-500">학년 판단 근거</p>
-                  <p className="mt-2 text-sm leading-7 text-slate-700">{details.gradeRationale}</p>
-                </article>
-              )}
+            <div className="mt-5 grid gap-3">
               {details.difficultyRationale && (
                 <article className="rounded-2xl border border-slate-200 p-4 sm:p-5">
                   <p className="text-xs font-bold text-slate-500">난이도 판단 근거</p>
-                  <p className="mt-2 text-sm leading-7 text-slate-700">{details.difficultyRationale}</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-700"><MathText>{details.difficultyRationale}</MathText></p>
                 </article>
               )}
             </div>
@@ -342,7 +316,7 @@ export default async function NoteDetailPage({
             <h2 className="mt-3 break-keep text-xl font-bold sm:text-2xl">학생 풀이와 정답 풀이를 함께 확인해요</h2>
           </div>
           <span className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-            정답 · {details?.answerSummary || typedNote.correct_answer}
+            정답 · <MathText>{details?.answerSummary || typedNote.correct_answer}</MathText>
           </span>
         </div>
 
@@ -420,8 +394,8 @@ export default async function NoteDetailPage({
                     <span className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-500 text-xs font-bold text-white">{index + 1}</span>
                     <div>
                       <p className="text-xs font-bold text-emerald-700">{step.title}</p>
-                      <p className="mt-1.5 text-sm font-semibold leading-6 text-slate-800">{step.explanation}</p>
-                      {step.formula && <p className="mt-2 whitespace-pre-wrap rounded-lg bg-white px-3 py-2 text-sm leading-7 text-slate-700">{step.formula}</p>}
+                      <p className="mt-1.5 text-sm font-semibold leading-6 text-slate-800"><MathText>{step.explanation}</MathText></p>
+                      {step.formula && <p className="mt-2 whitespace-pre-wrap rounded-lg bg-white px-3 py-2 text-sm leading-7 text-slate-700"><MathText>{step.formula}</MathText></p>}
                     </div>
                   </div>
                 ))}
@@ -429,8 +403,8 @@ export default async function NoteDetailPage({
             ) : (
               <div className="mt-4 rounded-xl bg-white p-4">
                 <p className="text-xs font-bold text-emerald-700">정답</p>
-                <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-7 text-slate-800">{typedNote.correct_answer}</p>
-                {typedNote.ai_analysis && <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-600">{typedNote.ai_analysis}</p>}
+                <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-7 text-slate-800"><MathText>{typedNote.correct_answer}</MathText></p>
+                {typedNote.ai_analysis && <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-600"><MathText>{typedNote.ai_analysis}</MathText></p>}
               </div>
             )}
 
@@ -438,7 +412,7 @@ export default async function NoteDetailPage({
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-500 font-bold text-white">✓</span>
               <div>
                 <p className="text-xs font-bold text-emerald-700">풀이 결론</p>
-                <p className="mt-1 text-sm font-bold leading-6 text-slate-900">{details?.answerSummary || typedNote.correct_answer}</p>
+                <p className="mt-1 text-sm font-bold leading-6 text-slate-900"><MathText>{details?.answerSummary || typedNote.correct_answer}</MathText></p>
               </div>
             </div>
           </article>
@@ -461,8 +435,8 @@ export default async function NoteDetailPage({
                 <span className="grid h-8 w-8 place-items-center rounded-xl bg-rose-50 text-xs font-bold text-rose-500">{index + 1}</span>
                 <div>
                   <p className="text-sm font-bold text-slate-800">{point.title}</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-500">{point.explanation}</p>
-                  {point.correction && <p className="mt-1 text-sm font-semibold text-indigo-600">다음에는: {point.correction}</p>}
+                  <p className="mt-1 text-sm leading-6 text-slate-500"><MathText>{point.explanation}</MathText></p>
+                  {point.correction && <p className="mt-1 text-sm font-semibold text-indigo-600">다음에는: <MathText>{point.correction}</MathText></p>}
                 </div>
               </div>
             ))}
@@ -471,7 +445,7 @@ export default async function NoteDetailPage({
       ) : typedNote.ai_analysis ? (
         <section className="rounded-3xl border border-indigo-100 bg-indigo-50 p-6">
           <h2 className="text-sm font-bold text-indigo-700">AI 오답 분석 {typedNote.mistake_type && `· ${typedNote.mistake_type}`}</h2>
-          <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-indigo-950">{typedNote.ai_analysis}</p>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-indigo-950"><MathText>{typedNote.ai_analysis}</MathText></p>
         </section>
       ) : null}
 
