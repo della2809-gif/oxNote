@@ -50,6 +50,12 @@ export type NoteConfusionPoint = {
   correction: string;
 };
 
+export type NoteLearningElement = {
+  concept: string;
+  explanation: string;
+  learningStage: string;
+};
+
 export type MathVerification = {
   status: "passed" | "corrected" | "needs_review" | "not_applicable";
   checkedCount: number;
@@ -67,6 +73,10 @@ export type NoteAiDetails = {
   difficulty: string;
   questionType: string;
   coreConcepts: string[];
+  recognizedConditions?: string[];
+  learningElements?: NoteLearningElement[];
+  gradeRationale?: string;
+  difficultyRationale?: string;
   solutionSteps: NoteSolutionStep[];
   answerSummary: string;
   confusionPoints: NoteConfusionPoint[];

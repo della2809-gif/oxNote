@@ -20,6 +20,14 @@ function asDetails(value: unknown): NoteAiDetails | null {
     difficulty: details.difficulty ?? "",
     questionType: details.questionType ?? "",
     coreConcepts: Array.isArray(details.coreConcepts) ? details.coreConcepts : [],
+    recognizedConditions: Array.isArray(details.recognizedConditions)
+      ? details.recognizedConditions
+      : [],
+    learningElements: Array.isArray(details.learningElements)
+      ? details.learningElements
+      : [],
+    gradeRationale: details.gradeRationale ?? "",
+    difficultyRationale: details.difficultyRationale ?? "",
     solutionSteps: details.solutionSteps,
     answerSummary: details.answerSummary ?? "",
     confusionPoints: Array.isArray(details.confusionPoints) ? details.confusionPoints : [],
@@ -255,6 +263,16 @@ export default async function NoteDetailPage({
           <div className="mt-7 rounded-2xl bg-slate-50 p-5">
             <p className="text-xs font-bold text-slate-500">인식한 문제의 핵심</p>
             <p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-7 text-slate-800">{typedNote.question}</p>
+            {details?.recognizedConditions?.length ? (
+              <ul className="mt-4 space-y-2 border-t border-slate-200 pt-4">
+                {details.recognizedConditions.map((condition, index) => (
+                  <li key={`${condition}-${index}`} className="flex gap-2 text-xs leading-5 text-slate-600">
+                    <span className="mt-0.5 text-indigo-500">✓</span>
+                    <span>{condition}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
 
           {details && (
@@ -271,6 +289,51 @@ export default async function NoteDetailPage({
           )}
         </section>
       </div>
+
+      {details &&
+        ((details.learningElements?.length ?? 0) > 0 ||
+          details.gradeRationale ||
+          details.difficultyRationale) && (
+          <section className="w-full min-w-0 overflow-hidden rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-8">
+            <p className="text-sm font-bold text-indigo-600">GPT 학습 분석</p>
+            <h2 className="mt-3 break-keep text-xl font-bold sm:text-2xl">
+              이 문제에 필요한 개념과 학습 수준
+            </h2>
+
+            {details.learningElements?.length ? (
+              <div className="mt-6 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {details.learningElements.map((element, index) => (
+                  <article key={`${element.concept}-${index}`} className="rounded-2xl bg-indigo-50/70 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="font-bold text-slate-900">{element.concept}</h3>
+                      {element.learningStage && (
+                        <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-indigo-600">
+                          {element.learningStage}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-slate-600">{element.explanation}</p>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              {details.gradeRationale && (
+                <article className="rounded-2xl border border-slate-200 p-4 sm:p-5">
+                  <p className="text-xs font-bold text-slate-500">학년 판단 근거</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-700">{details.gradeRationale}</p>
+                </article>
+              )}
+              {details.difficultyRationale && (
+                <article className="rounded-2xl border border-slate-200 p-4 sm:p-5">
+                  <p className="text-xs font-bold text-slate-500">난이도 판단 근거</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-700">{details.difficultyRationale}</p>
+                </article>
+              )}
+            </div>
+          </section>
+        )}
 
       <section className="w-full min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-8">
         <div className="flex flex-wrap items-start justify-between gap-4">

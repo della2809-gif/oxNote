@@ -6,7 +6,7 @@
 
 - [Next.js](https://nextjs.org) (App Router) + TypeScript + Tailwind CSS v4
 - [Supabase](https://supabase.com) — Auth, Postgres, Storage, RLS
-- [OpenAI API](https://platform.openai.com) (`gpt-4o`) — 오답 원인 분석, 사진/PDF 문제 인식
+- [OpenAI API](https://platform.openai.com) (`gpt-5.6-sol`) — 오답 원인 분석, 사진/PDF 문제 인식
 
 ## 로컬 개발 설정
 
@@ -38,7 +38,8 @@ cp .env.example .env.local
 | `NEXT_PUBLIC_SITE_URL` | 인증 메일이 돌아올 서비스 주소 |
 | `SUPABASE_SERVICE_ROLE_KEY` | 서버 전용 키. AI 사용량 예약·확정에만 사용하며 브라우저 노출 금지 |
 | `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com)에서 발급한 API 키 |
-| `OPENAI_MODEL` | (선택) 사용할 모델, 기본값 `gpt-4o` |
+| `OPENAI_MODEL` | (선택) 성적표 등 일반 AI 기능에 사용할 모델, 기본값 `gpt-4o` |
+| `OPENAI_ANALYSIS_MODEL` | (선택) 문제 사진·PDF 심층 분석 모델, 기본값 `gpt-5.6-sol` |
 | `PAYMENT_CHECKOUT_URL` | (선택) 결제대행사에서 발급한 호스팅 결제 URL |
 
 ### 4. 개발 서버 실행
