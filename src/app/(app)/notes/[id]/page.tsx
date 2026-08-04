@@ -276,39 +276,6 @@ export default async function NoteDetailPage({
         </section>
       </div>
 
-      {details &&
-        ((details.learningElements?.length ?? 0) > 0 ||
-          details.difficultyRationale) && (
-          <section className="w-full min-w-0 overflow-hidden rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-8">
-            <p className="text-sm font-bold text-indigo-600">GPT 학습 분석</p>
-            <h2 className="mt-3 break-keep text-xl font-bold sm:text-2xl">
-              이 문제에 필요한 개념과 학습 수준
-            </h2>
-
-            {details.learningElements?.length ? (
-              <div className="mt-6 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {details.learningElements.map((element, index) => (
-                  <article key={`${element.concept}-${index}`} className="rounded-2xl bg-indigo-50/70 p-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-bold text-slate-900"><MathText>{element.concept}</MathText></h3>
-                    </div>
-                    <p className="mt-3 text-sm leading-6 text-slate-600"><MathText>{element.explanation}</MathText></p>
-                  </article>
-                ))}
-              </div>
-            ) : null}
-
-            <div className="mt-5 grid gap-3">
-              {details.difficultyRationale && (
-                <article className="rounded-2xl border border-slate-200 p-4 sm:p-5">
-                  <p className="text-xs font-bold text-slate-500">난이도 판단 근거</p>
-                  <p className="mt-2 text-sm leading-7 text-slate-700"><MathText>{details.difficultyRationale}</MathText></p>
-                </article>
-              )}
-            </div>
-          </section>
-        )}
-
       <section className="w-full min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -472,6 +439,39 @@ export default async function NoteDetailPage({
           <p className="mt-2 text-right text-xs text-slate-400">최대 2,000자 · 상단 저장 버튼으로 저장</p>
         </form>
       </section>
+
+      {details &&
+        ((details.learningElements?.length ?? 0) > 0 ||
+          details.difficultyRationale) && (
+          <section className="w-full min-w-0 overflow-hidden rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-8">
+            <p className="text-sm font-bold text-indigo-600">GPT 학습 분석</p>
+            <h2 className="mt-3 break-keep text-xl font-bold sm:text-2xl">
+              이 문제에 필요한 개념과 학습 수준
+            </h2>
+
+            {details.learningElements?.length ? (
+              <div className="mt-6 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {details.learningElements.map((element, index) => (
+                  <article key={`${element.concept}-${index}`} className="rounded-2xl bg-indigo-50/70 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-bold text-slate-900"><MathText>{element.concept}</MathText></h3>
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-slate-600"><MathText>{element.explanation}</MathText></p>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="mt-5 grid gap-3">
+              {details.difficultyRationale && (
+                <article className="rounded-2xl border border-slate-200 p-4 sm:p-5">
+                  <p className="text-xs font-bold text-slate-500">난이도 판단 근거</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-700"><MathText>{details.difficultyRationale}</MathText></p>
+                </article>
+              )}
+            </div>
+          </section>
+        )}
 
       <section className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm shadow-sm sm:p-5">
         <span className="text-slate-500">복습 단계 · Box {typedNote.box_level} / 5</span>
