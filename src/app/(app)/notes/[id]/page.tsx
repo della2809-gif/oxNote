@@ -9,6 +9,9 @@ import {
   updateNoteMistakeReason,
 } from "../actions";
 
+// 보류 기능: 학습 분석 데이터와 화면 코드는 유지하되 운영 화면에서는 숨깁니다.
+const SHOW_LEARNING_ANALYSIS = false;
+
 function asDetails(value: unknown): NoteAiDetails | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const details = value as Partial<NoteAiDetails>;
@@ -444,7 +447,7 @@ export default async function NoteDetailPage({
         </form>
       </section>
 
-      {details &&
+      {SHOW_LEARNING_ANALYSIS && details &&
         ((details.learningElements?.length ?? 0) > 0 ||
           details.difficultyRationale) && (
           <section className="w-full min-w-0 overflow-hidden rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-8">

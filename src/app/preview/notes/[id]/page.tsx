@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+// 보류 기능: 실제 상세 화면과 동일하게 학습 분석 영역을 잠시 숨깁니다.
+const SHOW_LEARNING_ANALYSIS = false;
+
 const PREVIEW_NOTES = {
   "math-linear-equation": {
     subject: "수학",
@@ -121,7 +124,7 @@ export default async function PreviewNoteDetailPage({ params }: { params: Promis
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        {SHOW_LEARNING_ANALYSIS && <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm font-bold text-indigo-600">풀이 비교</p>
           <h2 className="mt-2 text-2xl font-bold">학생 풀이와 정답 풀이를 함께 확인해요</h2>
           <div className="mt-6 grid gap-5 lg:grid-cols-2">
@@ -152,7 +155,7 @@ export default async function PreviewNoteDetailPage({ params }: { params: Promis
               </div>
             </div>
           </div>
-        </section>
+        </section>}
 
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm font-bold text-indigo-600">GPT 학습 분석</p>
