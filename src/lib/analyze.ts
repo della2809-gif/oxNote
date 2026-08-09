@@ -1,4 +1,11 @@
-import { getOpenAI, GPT_ANALYSIS_MODEL } from "./openai";
+import {
+  getOpenAI,
+  GPT_FAST_MODEL,
+  GPT_FILE_MODEL,
+  OPENAI_FILE_REASONING_EFFORT,
+  OPENAI_FILE_VERBOSITY,
+  OPENAI_IMAGE_DETAIL,
+} from "./openai";
 import {
   applyMathVerificationCorrections,
   verifyAndCorrectMathDetails,
@@ -21,6 +28,18 @@ export type FileAnalysisResult = TextAnalysisResult & {
   myAnswer: string;
   correctAnswer: string;
   details: NoteAiDetails;
+};
+
+export type AnalysisStreamUpdate = {
+  delta: string;
+  outputText: string;
+  elapsedMs: number;
+};
+
+type AnalysisRuntimeOptions = {
+  signal?: AbortSignal;
+  onDelta?: (update: AnalysisStreamUpdate) => void;
+  onFirstToken?: (elapsedMs: number) => void;
 };
 
 const TUTOR_INSTRUCTIONS = `너는 모든 시험 분야를 다루는 한국어 AI 오답 튜터다.
@@ -56,15 +75,64 @@ const TUTOR_INSTRUCTIONS = `너는 모든 시험 분야를 다루는 한국어 A
 - 확인할 수 없는 개인정보나 출처는 추측하지 않는다.
 - mistake_type은 '개념 이해 부족', '계산 실수', '문제 오독', '암기 부족'처럼 짧게, tags는 핵심 개념 키워드 배열로 작성한다.`;
 
-const usesGpt5Reasoning = GPT_ANALYSIS_MODEL.startsWith("gpt-5");
-const supportsOriginalImageDetail = GPT_ANALYSIS_MODEL.startsWith("gpt-5.6");
+const TEXT_TUTOR_INSTRUCTIONS = `너는 한국어 AI 오답 튜터다.
+- 문제, 학생 답, 정답의 차이만 근거로 첫 오류 원인과 핵심 개념을 3~5문장으로 설명한다.
+- 맞았지만 복습인 문제는 틀렸다고 단정하지 않고 풀이 점검과 복습 지점을 설명한다.
+- mistake_type은 '개념 이해 부족', '계산 실수', '문제 오독', '암기 부족'처럼 짧게 쓴다.
+- tags에는 실제 풀이에 필요한 핵심 개념만 넣고 개인정보나 확인할 수 없는 사실은 추측하지 않는다.`;
 
-function analysisRequestOptions() {
-  return usesGpt5Reasoning
+const usesFileGpt5 = GPT_FILE_MODEL.startsWith("gpt-5");
+const usesFastGpt5 = GPT_FAST_MODEL.startsWith("gpt-5");
+
+function reasoningRequestOptions() {
+  return usesFileGpt5
     ? {
-        reasoning: { effort: "high" as const },
+        reasoning: { effort: OPENAI_FILE_REASONING_EFFORT },
       }
     : {};
+}
+
+function fastRequestOptions() {
+  return usesFastGpt5 ? { reasoning: { effort: "none" as const } } : {};
+}
+
+async function collectStream(
+  stream: AsyncIterable<unknown>,
+  options: AnalysisRuntimeOptions,
+) {
+  const startedAt = performance.now();
+  let outputText = "";
+  let firstTokenSeen = false;
+  let inputTokens = 0;
+  let outputTokens = 0;
+
+  for await (const rawEvent of stream) {
+    const event = rawEvent as {
+      type?: string;
+      delta?: string;
+      response?: {
+        usage?: { input_tokens?: number; output_tokens?: number } | null;
+      };
+    };
+    if (event.type === "response.output_text.delta" && typeof event.delta === "string") {
+      if (!firstTokenSeen) {
+        firstTokenSeen = true;
+        options.onFirstToken?.(performance.now() - startedAt);
+      }
+      outputText += event.delta;
+      options.onDelta?.({
+        delta: event.delta,
+        outputText,
+        elapsedMs: performance.now() - startedAt,
+      });
+    }
+    if (event.type === "response.completed") {
+      inputTokens = event.response?.usage?.input_tokens ?? 0;
+      outputTokens = event.response?.usage?.output_tokens ?? 0;
+    }
+  }
+
+  return { outputText, usage: { inputTokens, outputTokens } };
 }
 
 const TEXT_ANALYSIS_SCHEMA = {
@@ -198,29 +266,27 @@ const FILE_ANALYSIS_SCHEMA = {
   additionalProperties: false,
 };
 
-function extractOutputText(response: { output_text?: string }): string {
-  return response.output_text ?? "{}";
-}
-
 export async function analyzeFromText({
   question,
   myAnswer,
   correctAnswer,
   subject,
   learningStatus = "incorrect",
+  runtime = {},
 }: {
   question: string;
   myAnswer: string;
   correctAnswer: string;
   subject: string;
   learningStatus?: "incorrect" | "correct_review";
+  runtime?: AnalysisRuntimeOptions;
 }): Promise<TextAnalysisResult> {
   try {
-    const response = await getOpenAI().responses.create({
-      model: GPT_ANALYSIS_MODEL,
-      ...analysisRequestOptions(),
+    const stream = await getOpenAI().responses.create({
+      model: GPT_FAST_MODEL,
+      ...fastRequestOptions(),
       input: [
-        { role: "system", content: TUTOR_INSTRUCTIONS },
+        { role: "system", content: TEXT_TUTOR_INSTRUCTIONS },
         {
           role: "user",
           content: [
@@ -237,7 +303,7 @@ export async function analyzeFromText({
         },
       ],
       text: {
-        ...(usesGpt5Reasoning ? { verbosity: "high" as const } : {}),
+        ...(usesFastGpt5 ? { verbosity: "low" as const } : {}),
         format: {
           type: "json_schema",
           name: "mistake_analysis",
@@ -245,18 +311,17 @@ export async function analyzeFromText({
           schema: TEXT_ANALYSIS_SCHEMA,
         },
       },
-    });
+      stream: true,
+    }, { signal: runtime.signal });
 
-    const parsed = JSON.parse(extractOutputText(response));
+    const streamed = await collectStream(stream, runtime);
+    const parsed = JSON.parse(streamed.outputText || "{}");
     return {
       analysis: parsed.analysis ?? "",
       mistakeType: parsed.mistake_type ?? "",
       tags: parsed.tags ?? [],
       succeeded: true,
-      usage: {
-        inputTokens: response.usage?.input_tokens ?? 0,
-        outputTokens: response.usage?.output_tokens ?? 0,
-      },
+      usage: streamed.usage,
     };
   } catch (err) {
     // AI 분석이 실패해도 노트 자체는 저장되어야 하므로 빈 결과로 대체한다.
@@ -282,6 +347,7 @@ export async function analyzeFromFile({
   studentSolutionBase64,
   studentSolutionMimeType,
   studentSolutionFilename,
+  runtime = {},
 }: {
   fileBase64: string;
   mimeType: string;
@@ -293,6 +359,7 @@ export async function analyzeFromFile({
   studentSolutionBase64?: string;
   studentSolutionMimeType?: string;
   studentSolutionFilename?: string;
+  runtime?: AnalysisRuntimeOptions;
 }): Promise<FileAnalysisResult> {
   const fileContent =
     mimeType === "application/pdf"
@@ -302,9 +369,9 @@ export async function analyzeFromFile({
           file_data: `data:application/pdf;base64,${fileBase64}`,
         }
       : {
-          type: "input_image" as const,
-          image_url: `data:${mimeType};base64,${fileBase64}`,
-          detail: supportsOriginalImageDetail ? ("original" as const) : ("high" as const),
+           type: "input_image" as const,
+           image_url: `data:${mimeType};base64,${fileBase64}`,
+           detail: OPENAI_IMAGE_DETAIL,
         };
 
   const studentSolutionContent =
@@ -316,9 +383,9 @@ export async function analyzeFromFile({
             file_data: `data:application/pdf;base64,${studentSolutionBase64}`,
           }
         : {
-            type: "input_image" as const,
-            image_url: `data:${studentSolutionMimeType};base64,${studentSolutionBase64}`,
-            detail: supportsOriginalImageDetail ? ("original" as const) : ("high" as const),
+             type: "input_image" as const,
+             image_url: `data:${studentSolutionMimeType};base64,${studentSolutionBase64}`,
+             detail: OPENAI_IMAGE_DETAIL,
           }
       : null;
 
@@ -338,9 +405,9 @@ export async function analyzeFromFile({
     .filter(Boolean)
     .join("\n");
 
-  const response = await getOpenAI().responses.create({
-    model: GPT_ANALYSIS_MODEL,
-    ...analysisRequestOptions(),
+  const stream = await getOpenAI().responses.create({
+    model: GPT_FILE_MODEL,
+    ...reasoningRequestOptions(),
     input: [
       { role: "system", content: TUTOR_INSTRUCTIONS },
       {
@@ -353,7 +420,7 @@ export async function analyzeFromFile({
       },
     ],
     text: {
-      ...(usesGpt5Reasoning ? { verbosity: "high" as const } : {}),
+      ...(usesFileGpt5 ? { verbosity: OPENAI_FILE_VERBOSITY } : {}),
       format: {
         type: "json_schema",
         name: "mistake_analysis_from_file",
@@ -361,9 +428,11 @@ export async function analyzeFromFile({
         schema: FILE_ANALYSIS_SCHEMA,
       },
     },
-  });
+    stream: true,
+  }, { signal: runtime.signal });
 
-  const parsed = JSON.parse(extractOutputText(response));
+  const streamed = await collectStream(stream, runtime);
+  const parsed = JSON.parse(streamed.outputText || "{}");
   const details = parsed.details ?? {};
   const verifiedDetails = verifyAndCorrectMathDetails({
     title: details.title ?? "",
@@ -412,9 +481,6 @@ export async function analyzeFromFile({
     tags: parsed.tags ?? [],
     details: verifiedDetails,
     succeeded: true,
-    usage: {
-      inputTokens: response.usage?.input_tokens ?? 0,
-      outputTokens: response.usage?.output_tokens ?? 0,
-    },
+    usage: streamed.usage,
   };
 }

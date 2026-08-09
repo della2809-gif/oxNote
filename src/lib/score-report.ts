@@ -1,6 +1,7 @@
 import "server-only";
 
-import { getOpenAI, GPT_MODEL } from "./openai";
+import { getOpenAI, GPT_FAST_MODEL } from "./openai";
+import { createAiPerformanceTracker } from "./ai-performance";
 
 export type ExtractedScoreReport = {
   schoolLevel: "elementary" | "middle" | "high" | "university" | "adult";
@@ -68,6 +69,7 @@ export async function extractScoreReport({
   mimeType: string;
   filename: string;
 }): Promise<{ data: ExtractedScoreReport; inputTokens: number; outputTokens: number }> {
+  const perf = createAiPerformanceTracker(undefined, { flow: "score_report" });
   const fileContent = mimeType === "application/pdf"
     ? {
         type: "input_file" as const,
@@ -81,7 +83,8 @@ export async function extractScoreReport({
       };
 
   const response = await getOpenAI().responses.create({
-    model: GPT_MODEL,
+    model: GPT_FAST_MODEL,
+    ...(GPT_FAST_MODEL.startsWith("gpt-5") ? { reasoning: { effort: "none" as const } } : {}),
     input: [
       {
         role: "system",
@@ -101,6 +104,7 @@ export async function extractScoreReport({
       },
     ],
     text: {
+      ...(GPT_FAST_MODEL.startsWith("gpt-5") ? { verbosity: "low" as const } : {}),
       format: {
         type: "json_schema",
         name: "score_report_extraction",
@@ -108,6 +112,10 @@ export async function extractScoreReport({
         schema: SCORE_REPORT_SCHEMA,
       },
     },
+  });
+  perf.finish({
+    inputTokens: response.usage?.input_tokens ?? 0,
+    outputTokens: response.usage?.output_tokens ?? 0,
   });
 
   const parsed = JSON.parse(response.output_text || "{}");

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
 import type { Subject } from "@/lib/types";
 import { createNote, createNoteFromFile } from "../actions";
 import { createSubjectInline } from "../../subjects/actions";
@@ -9,11 +10,26 @@ import ImageCropper, { compressImageFile } from "./ImageCropper";
 
 const fieldClass =
   "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50";
-const SAFE_UPLOAD_BYTES = 4 * 1024 * 1024;
+const SAFE_UPLOAD_BYTES = 30 * 1024 * 1024;
 
 type FileSelection = {
   file: File;
   previewUrl: string | null;
+};
+
+type AnalysisPreview = {
+  question?: string;
+  correctAnswer?: string;
+  analysis?: string;
+  answerSummary?: string;
+};
+
+type NoteStreamEvent = {
+  type: "progress" | "complete" | "error";
+  message?: string;
+  preview?: AnalysisPreview;
+  noteId?: string;
+  error?: string;
 };
 
 function makeSelection(file: File | null): FileSelection | null {
@@ -68,6 +84,18 @@ function SubmitButton({ ready }: { ready: boolean }) {
   );
 }
 
+function StreamingSubmitButton({ ready, pending }: { ready: boolean; pending: boolean }) {
+  return (
+    <button
+      type="submit"
+      disabled={!ready || pending}
+      className="w-full rounded-xl bg-indigo-600 px-5 py-4 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+    >
+      {pending ? "AI 분석을 진행하고 있어요..." : "문제 유형과 풀이 분석하기 →"}
+    </button>
+  );
+}
+
 export default function NoteForm({
   subjects,
   error,
@@ -75,6 +103,7 @@ export default function NoteForm({
   subjects: Subject[];
   error?: string;
 }) {
+  const router = useRouter();
   const [mode, setMode] = useState<"file" | "manual">("file");
   const [problem, setProblem] = useState<FileSelection | null>(null);
   const [solution, setSolution] = useState<FileSelection | null>(null);
@@ -83,9 +112,13 @@ export default function NoteForm({
   const [cropSource, setCropSource] = useState<File | null>(null);
   const [clientError, setClientError] = useState("");
   const [isProcessingSolution, setIsProcessingSolution] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [progressMessage, setProgressMessage] = useState("");
+  const [analysisPreview, setAnalysisPreview] = useState<AnalysisPreview>({});
   const problemInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const solutionInputRef = useRef<HTMLInputElement>(null);
+  const requestControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const url = problem?.previewUrl;
@@ -100,6 +133,10 @@ export default function NoteForm({
       if (url) URL.revokeObjectURL(url);
     };
   }, [solution?.previewUrl]);
+
+  useEffect(() => {
+    return () => requestControllerRef.current?.abort();
+  }, []);
 
   function replaceSelection(
     nextFile: File | null,
@@ -134,6 +171,80 @@ export default function NoteForm({
       return;
     }
     setCanonicalProblemFile(file);
+  }
+
+  async function submitFileAnalysis(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isAnalyzing || requestControllerRef.current) return;
+    const totalBytes = (problem?.file.size ?? 0) + (solution?.file.size ?? 0);
+    if (totalBytes > SAFE_UPLOAD_BYTES) {
+      setClientError("파일이 너무 큽니다. PDF 용량을 줄이거나 학생 풀이 파일을 제외하고 다시 시도해 주세요.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
+    const requestId = crypto.randomUUID();
+    const formData = new FormData(event.currentTarget);
+    formData.set("requestId", requestId);
+    setClientError("");
+    setAnalysisPreview({});
+    setProgressMessage("요청을 전송하고 있어요.");
+    setIsAnalyzing(true);
+
+    try {
+      const response = await fetch("/api/notes/create", {
+        method: "POST",
+        body: formData,
+        signal: controller.signal,
+        headers: { "X-Request-Id": requestId },
+      });
+      if (response.status === 401) {
+        router.push("/login?next=/notes/new");
+        return;
+      }
+      if (!response.ok || !response.body) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? "AI 분석 요청을 시작하지 못했습니다.");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffered = "";
+      let completedNoteId = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        buffered += decoder.decode(value, { stream: !done });
+        const lines = buffered.split("\n");
+        buffered = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const streamEvent = JSON.parse(line) as NoteStreamEvent;
+          if (streamEvent.type === "error") throw new Error(streamEvent.error ?? "AI 분석에 실패했습니다.");
+          if (streamEvent.message) setProgressMessage(streamEvent.message);
+          if (streamEvent.preview) {
+            setAnalysisPreview((current) => ({ ...current, ...streamEvent.preview }));
+          }
+          if (streamEvent.type === "complete" && streamEvent.noteId) completedNoteId = streamEvent.noteId;
+        }
+        if (done) break;
+      }
+      if (!completedNoteId) throw new Error("분석은 끝났지만 저장 결과를 확인하지 못했습니다.");
+      setProgressMessage("저장이 완료되었어요. 오답노트로 이동합니다.");
+      router.push(`/notes/${completedNoteId}`);
+      router.refresh();
+    } catch (submissionError) {
+      if (controller.signal.aborted) {
+        setClientError("AI 분석 요청을 취소했습니다.");
+      } else {
+        setClientError(submissionError instanceof Error ? submissionError.message : "AI 분석에 실패했습니다.");
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } finally {
+      if (requestControllerRef.current === controller) requestControllerRef.current = null;
+      setIsAnalyzing(false);
+    }
   }
 
   if (mode === "manual") {
@@ -192,20 +303,62 @@ export default function NoteForm({
     <form
       action={createNoteFromFile}
       className="space-y-5"
-      onSubmit={(event) => {
-        const totalBytes = (problem?.file.size ?? 0) + (solution?.file.size ?? 0);
-        if (totalBytes <= SAFE_UPLOAD_BYTES) return;
-        event.preventDefault();
-        setClientError(
-          "파일이 너무 큽니다. PDF 용량을 줄이거나 학생 풀이 파일을 제외하고 다시 시도해 주세요.",
-        );
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }}
+      onSubmit={submitFileAnalysis}
     >
+      <input
+        type="hidden"
+        name="subjectName"
+        value={subjectOptions.find((subject) => subject.id === selectedSubjectId)?.name ?? ""}
+      />
       {(error || clientError) && (
         <div className="rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-sm font-medium text-red-600">
           {clientError || error}
         </div>
+      )}
+
+      {isAnalyzing && (
+        <section aria-live="polite" className="rounded-3xl border border-indigo-100 bg-indigo-50 p-5 shadow-sm sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-indigo-500">AI 실시간 분석</p>
+              <p className="mt-1 text-base font-bold text-slate-900">{progressMessage}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => requestControllerRef.current?.abort()}
+              className="shrink-0 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-100"
+            >
+              취소
+            </button>
+          </div>
+          <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-indigo-100">
+            <div className="h-full w-1/2 animate-pulse rounded-full bg-indigo-500" />
+          </div>
+          {(analysisPreview.question || analysisPreview.correctAnswer || analysisPreview.analysis || analysisPreview.answerSummary) && (
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              {analysisPreview.question && (
+                <div className="rounded-2xl bg-white p-4 sm:col-span-2">
+                  <p className="text-xs font-bold text-indigo-500">인식한 문제</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{analysisPreview.question}</p>
+                </div>
+              )}
+              {analysisPreview.correctAnswer && (
+                <div className="rounded-2xl bg-white p-4">
+                  <p className="text-xs font-bold text-emerald-600">정답</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{analysisPreview.correctAnswer}</p>
+                </div>
+              )}
+              {(analysisPreview.answerSummary || analysisPreview.analysis) && (
+                <div className="rounded-2xl bg-white p-4">
+                  <p className="text-xs font-bold text-indigo-500">핵심 풀이</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                    {analysisPreview.answerSummary || analysisPreview.analysis}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
       )}
 
       <section className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:p-5">
@@ -455,7 +608,10 @@ export default function NoteForm({
           </div>
 
           <div className="mt-7 space-y-4">
-            <SubmitButton ready={Boolean(problem) && !cropSource && !isProcessingSolution} />
+            <StreamingSubmitButton
+              ready={Boolean(problem) && !cropSource && !isProcessingSolution}
+              pending={isAnalyzing}
+            />
             <button
               type="button"
               onClick={() => setMode("manual")}

@@ -55,7 +55,7 @@ export async function generatePerformanceReport(examResultId: string) {
   const admin = createAdminClient();
   const { data: result, error } = await admin
     .from("exam_results")
-    .select("*")
+    .select("id, user_id, school_level, grade_level, subject_name, exam_type, exam_date, region_code, score_percent, wrong_rate")
     .eq("id", examResultId)
     .single();
   if (error || !result) throw new Error("성적 정보를 찾을 수 없습니다.");

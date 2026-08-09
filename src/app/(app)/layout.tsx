@@ -25,7 +25,9 @@ export default async function AppLayout({
   if (!user) redirect("/login");
   const isAdmin = user.app_metadata?.role === "admin";
   const now = new Date();
-  const admin = createAdminClient();
+  const admin = process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? createAdminClient()
+    : null;
   const [
     dueReviewsResult,
     nextReviewResult,
@@ -58,7 +60,7 @@ export default async function AppLayout({
       .select("id, status")
       .or(`child_user_id.eq.${user.id},guardian_user_id.eq.${user.id}`)
       .eq("status", "active"),
-    user.email
+    user.email && admin
       ? admin
           .from("family_invitations")
           .select("id, direction, child_name", { count: "exact" })
@@ -67,13 +69,15 @@ export default async function AppLayout({
           .gt("expires_at", now.toISOString())
           .order("created_at", { ascending: false })
           .limit(1)
-      : Promise.resolve({ data: [], count: 0 }),
+      : Promise.resolve({ data: [], count: 0, error: null }),
     admin
-      .from("family_invitations")
-      .select("id")
-      .eq("inviter_user_id", user.id)
-      .eq("status", "pending")
-      .gt("expires_at", now.toISOString()),
+      ? admin
+          .from("family_invitations")
+          .select("id")
+          .eq("inviter_user_id", user.id)
+          .eq("status", "pending")
+          .gt("expires_at", now.toISOString())
+      : Promise.resolve({ data: [], error: null }),
     supabase
       .from("profiles")
       .select("display_name")

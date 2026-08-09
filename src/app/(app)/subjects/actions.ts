@@ -46,7 +46,7 @@ export async function createSubjectInline(
 
   const { data: existing } = await supabase
     .from("subjects")
-    .select("*")
+    .select("id, user_id, name, color, created_at")
     .eq("user_id", user.id)
     .ilike("name", name)
     .limit(1)
@@ -56,7 +56,7 @@ export async function createSubjectInline(
   const { data, error } = await supabase
     .from("subjects")
     .insert({ user_id: user.id, name, color: subjectColor(name) })
-    .select("*")
+    .select("id, user_id, name, color, created_at")
     .single();
 
   if (error || !data) {

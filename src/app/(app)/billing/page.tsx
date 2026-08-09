@@ -24,7 +24,11 @@ export default async function BillingPage() {
   monthStart.setUTCHours(0, 0, 0, 0);
 
   const [{ data: plans }, { data: subscription }, { data: usageEvents }, { data: uploadedNotes }] = await Promise.all([
-    supabase.from("plans").select("*").eq("is_active", true).order("sort_order"),
+    supabase
+      .from("plans")
+      .select("id, name, description, monthly_price_krw, monthly_ai_credits, max_file_bytes, monthly_storage_bytes")
+      .eq("is_active", true)
+      .order("sort_order"),
     supabase
       .from("subscriptions")
       .select("status, plan_id, current_period_end, cancel_at_period_end")

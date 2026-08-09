@@ -43,3 +43,8 @@ next-env.d.ts
 
 # claude code local settings (machine-specific, may contain leftover local state)
 .claude/
+
+# local agent/editor and preview state
+.mcp.json
+.vscode/
+.local-*.log

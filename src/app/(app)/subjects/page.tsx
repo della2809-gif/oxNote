@@ -6,7 +6,7 @@ export default async function SubjectsPage() {
   const supabase = await createClient();
   const { data: subjects } = await supabase
     .from("subjects")
-    .select("*")
+    .select("id, user_id, name, color, created_at")
     .order("created_at", { ascending: true });
 
   return (

@@ -106,18 +106,21 @@ export default async function NotesPage({
   const sortOrder: SortOrder = params.sort === "oldest" ? "oldest" : "newest";
 
   const supabase = await createClient();
+  let notesQuery = supabase
+    .from("notes")
+    .select("id, subject_id, source, question, correct_answer, ai_details, mistake_type, user_mistake_reason, tags, mastered, created_at")
+    .order("created_at", { ascending: sortOrder === "oldest" });
+  if (subjectFilter) notesQuery = notesQuery.eq("subject_id", subjectFilter);
   const [{ data: subjectsData }, { data: notesData }] = await Promise.all([
-    supabase.from("subjects").select("*").order("name"),
-    supabase.from("notes").select("*").order("created_at", { ascending: sortOrder === "oldest" }),
+    supabase.from("subjects").select("id, name, color").order("name"),
+    notesQuery,
   ]);
 
   const subjects = (subjectsData as Subject[] | null) ?? [];
   const allNotes = (notesData as Note[] | null) ?? [];
   const subjectMap = new Map(subjects.map((subject) => [subject.id, subject]));
 
-  const subjectNotes = subjectFilter
-    ? allNotes.filter((note) => note.subject_id === subjectFilter)
-    : allNotes;
+  const subjectNotes = allNotes;
 
   const availableValues = classification
     ? Array.from(

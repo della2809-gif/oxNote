@@ -2,22 +2,27 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { analyzeFromFile, analyzeFromText } from "@/lib/analyze";
+import { analyzeFromText, type TextAnalysisResult } from "@/lib/analyze";
+import { analysisCacheKey, readAnalysisCache, writeAnalysisCache } from "@/lib/ai-analysis-cache";
+import { createAiPerformanceTracker } from "@/lib/ai-performance";
+import {
+  createFileNote,
+  FileNoteCreationError,
+  lookupSubjectName,
+} from "@/lib/create-file-note";
 import {
   finalizeAiUsage,
-  getMonthlyUploadedBytes,
-  getUserEntitlements,
   reserveAiUsage,
   usageErrorMessage,
 } from "@/lib/billing";
+import { GPT_FAST_MODEL } from "@/lib/openai";
 import {
   initialReviewDate,
   reviewScheduleAfterResult,
 } from "@/lib/spaced-repetition";
 
-const ACCEPTED_FILE_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
 const MAX_QUESTION_LENGTH = 12_000;
 const MAX_ANSWER_LENGTH = 5_000;
 const MAX_SOURCE_LENGTH = 500;
@@ -54,89 +59,13 @@ function readLearningStatus(formData: FormData) {
     ? (value as (typeof LEARNING_STATUSES)[number])
     : null;
 }
-const SUBJECT_COLORS = [
-  "#6366f1",
-  "#ec4899",
-  "#22c55e",
-  "#f59e0b",
-  "#06b6d4",
-  "#a855f7",
-  "#ef4444",
-];
-
-async function lookupSubjectName(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  subjectId: string | null,
-): Promise<string> {
-  if (!subjectId) return "";
-  const { data } = await supabase.from("subjects").select("name").eq("id", subjectId).single();
-  return data?.name ?? "";
-}
-
-function normalizeAiSubject(rawSubject: string) {
-  const normalized = rawSubject.trim().replace(/\s+/g, " ").slice(0, 40);
-  const commonSubjects = [
-    "국어",
-    "영어",
-    "수학",
-    "과학",
-    "사회",
-    "한국사",
-    "물리",
-    "화학",
-    "생명과학",
-    "지구과학",
-  ];
-  return commonSubjects.find((subject) => normalized.includes(subject)) ?? normalized;
-}
-
-function subjectColor(name: string) {
-  const hash = Array.from(name).reduce((sum, character) => sum + character.charCodeAt(0), 0);
-  return SUBJECT_COLORS[hash % SUBJECT_COLORS.length];
-}
-
-async function resolveSubjectId(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  selectedSubjectId: string | null,
-  aiSubject: string,
-) {
-  if (selectedSubjectId) return selectedSubjectId;
-
-  const name = normalizeAiSubject(aiSubject);
-  if (!name) return null;
-
-  const { data: existing } = await supabase
-    .from("subjects")
-    .select("id")
-    .eq("user_id", userId)
-    .ilike("name", name)
-    .limit(1)
-    .maybeSingle();
-  if (existing?.id) return String(existing.id);
-
-  const { data: created } = await supabase
-    .from("subjects")
-    .insert({ user_id: userId, name, color: subjectColor(name) })
-    .select("id")
-    .maybeSingle();
-  if (created?.id) return String(created.id);
-
-  const { data: racedExisting } = await supabase
-    .from("subjects")
-    .select("id")
-    .eq("user_id", userId)
-    .ilike("name", name)
-    .limit(1)
-    .maybeSingle();
-  return racedExisting?.id ? String(racedExisting.id) : null;
-}
-
 export async function createNote(formData: FormData) {
+  const perf = createAiPerformanceTracker(undefined, { flow: "text_note" });
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  perf.mark("auth", { authenticated: Boolean(user) });
   if (!user) redirect("/login");
 
   const question = String(formData.get("question") ?? "").trim();
@@ -158,28 +87,55 @@ export async function createNote(formData: FormData) {
   }
 
   const subjectName = await lookupSubjectName(supabase, subjectId);
-  const reservation = await reserveAiUsage(user.id, "text_analysis");
-  if (!reservation.allowed) {
-    redirect("/notes/new?error=" + encodeURIComponent(usageErrorMessage(reservation.reason)));
-  }
-
-  const analyzed = await analyzeFromText({
+  perf.mark("subject_lookup");
+  const cacheKey = analysisCacheKey([
+    "text_analysis",
+    user.id,
+    subjectName,
     question,
     myAnswer,
     correctAnswer,
-    subject: subjectName,
     learningStatus,
-  });
+  ]);
+  const cacheStartedAt = performance.now();
+  const cached = await readAnalysisCache<TextAnalysisResult>(supabase, user.id, cacheKey);
+  perf.measure("cache_lookup", cacheStartedAt, { cacheHit: Boolean(cached) });
 
-  await finalizeAiUsage({
-    userId: user.id,
-    requestKey: reservation.requestKey,
-    succeeded: analyzed.succeeded,
-    inputTokens: analyzed.usage.inputTokens,
-    outputTokens: analyzed.usage.outputTokens,
-    failureReason: analyzed.succeeded ? undefined : "OpenAI text analysis failed",
-  });
+  let reservation: Awaited<ReturnType<typeof reserveAiUsage>> | null = null;
+  let analyzed: TextAnalysisResult;
+  if (cached) {
+    analyzed = cached;
+  } else {
+    reservation = await reserveAiUsage(user.id, "text_analysis", supabase);
+    perf.mark("usage_reservation");
+    if (!reservation.allowed) {
+      redirect("/notes/new?error=" + encodeURIComponent(usageErrorMessage(reservation.reason)));
+    }
+    const openAiStartedAt = performance.now();
+    analyzed = await analyzeFromText({
+      question,
+      myAnswer,
+      correctAnswer,
+      subject: subjectName,
+      learningStatus,
+      runtime: {
+        onFirstToken: () => perf.measure("openai_first_token", openAiStartedAt),
+      },
+    });
+    perf.measure("openai_complete", openAiStartedAt, {
+      inputTokens: analyzed.usage.inputTokens,
+      outputTokens: analyzed.usage.outputTokens,
+    });
+    after(() => writeAnalysisCache(supabase, {
+      userId: user.id,
+      cacheKey,
+      kind: "text_analysis",
+      model: GPT_FAST_MODEL,
+      result: analyzed,
+    }));
+  }
 
+  const saveStartedAt = performance.now();
   const { data, error } = await supabase
     .from("notes")
     .insert({
@@ -201,10 +157,24 @@ export async function createNote(formData: FormData) {
     })
     .select("id")
     .single();
+  perf.measure("db_save", saveStartedAt);
 
   if (error || !data) {
     redirect("/notes/new?error=" + encodeURIComponent(error?.message ?? "저장에 실패했습니다."));
   }
+
+  if (reservation) {
+    after(() => finalizeAiUsage({
+      userId: user.id,
+      requestKey: reservation.requestKey,
+      succeeded: analyzed.succeeded,
+      inputTokens: analyzed.usage.inputTokens,
+      outputTokens: analyzed.usage.outputTokens,
+      failureReason: analyzed.succeeded ? undefined : "OpenAI text analysis failed",
+      existingClient: supabase,
+    }));
+  }
+  perf.finish({ cacheHit: Boolean(cached), noteId: String(data.id) });
 
   revalidatePath("/notes");
   revalidatePath("/dashboard");
@@ -217,199 +187,22 @@ export async function createNoteFromFile(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
-
-  const selectedFile = formData.get("file");
-  const cameraFile = formData.get("cameraFile");
-  const solutionFile = formData.get("solutionFile");
-  const source = String(formData.get("source") ?? "").trim();
-  const subjectId = String(formData.get("subjectId") ?? "") || null;
-  const myAnswerHint = String(formData.get("myAnswerHint") ?? "").trim();
-  const correctAnswerHint = String(formData.get("correctAnswerHint") ?? "").trim();
-  const learningStatus = readLearningStatus(formData);
-
-  if (!myAnswerHint || !correctAnswerHint || !learningStatus) {
-    redirect(
-      "/notes/new?error=" +
-        encodeURIComponent("문제 상태, 내가 선택한 답, 정답을 모두 입력해 주세요."),
-    );
-  }
-
-  const file =
-    selectedFile instanceof File && selectedFile.size > 0
-      ? selectedFile
-      : cameraFile instanceof File && cameraFile.size > 0
-        ? cameraFile
-        : null;
-
-  if (!file) {
-    redirect("/notes/new?error=" + encodeURIComponent("업로드할 사진 또는 PDF 파일을 선택해주세요."));
-  }
-
-  const uploadedFile = file;
-  const uploadedSolution =
-    solutionFile instanceof File && solutionFile.size > 0 ? solutionFile : null;
-
-  if (!ACCEPTED_FILE_TYPES.includes(uploadedFile.type)) {
-    redirect("/notes/new?error=" + encodeURIComponent("사진(JPG/PNG/WEBP) 또는 PDF 파일만 업로드할 수 있습니다."));
-  }
-  if (uploadedSolution && !ACCEPTED_FILE_TYPES.includes(uploadedSolution.type)) {
-    redirect(
-      "/notes/new?error=" +
-        encodeURIComponent("학생 풀이도 사진(JPG/PNG/WEBP) 또는 PDF 파일만 올릴 수 있습니다."),
-    );
-  }
-  const entitlements = await getUserEntitlements(user.id);
-  const planFileLimit = Math.min(entitlements.maxFileBytes, MAX_FILE_SIZE_BYTES);
-  if (uploadedFile.size > planFileLimit) {
-    const limitMb = Math.floor(planFileLimit / 1024 / 1024);
-    redirect(
-      "/notes/new?error=" +
-        encodeURIComponent(`${entitlements.planName} 플랜은 파일당 최대 ${limitMb}MB까지 업로드할 수 있습니다.`),
-    );
-  }
-  if (uploadedSolution && uploadedSolution.size > planFileLimit) {
-    const limitMb = Math.floor(planFileLimit / 1024 / 1024);
-    redirect(
-      "/notes/new?error=" +
-        encodeURIComponent(`학생 풀이 파일은 ${limitMb}MB 이하로 올려주세요.`),
-    );
-  }
-  const monthlyUploadedBytes = await getMonthlyUploadedBytes(user.id);
-  const requestedUploadBytes = uploadedFile.size + (uploadedSolution?.size ?? 0);
-  if (monthlyUploadedBytes + requestedUploadBytes > entitlements.monthlyStorageBytes) {
-    redirect(
-      "/notes/new?error=" +
-        encodeURIComponent(
-          `${entitlements.planName} 플랜의 이번 달 파일 업로드 한도를 초과합니다. 요금제 페이지를 확인해 주세요.`,
-        ),
-    );
-  }
-
-  const subjectName = await lookupSubjectName(supabase, subjectId);
-  const reservation = await reserveAiUsage(user.id, "file_analysis");
-  if (!reservation.allowed) {
-    redirect("/notes/new?error=" + encodeURIComponent(usageErrorMessage(reservation.reason)));
-  }
-  const arrayBuffer = await uploadedFile.arrayBuffer();
-  const fileBase64 = Buffer.from(arrayBuffer).toString("base64");
-  const solutionArrayBuffer = uploadedSolution
-    ? await uploadedSolution.arrayBuffer()
-    : null;
-
-  let analyzed;
   try {
-    analyzed = await analyzeFromFile({
-      fileBase64,
-      mimeType: uploadedFile.type,
-      filename: uploadedFile.name,
-      subject: subjectName,
-      myAnswerHint,
-      correctAnswerHint,
-      learningStatus,
-      studentSolutionBase64: solutionArrayBuffer
-        ? Buffer.from(solutionArrayBuffer).toString("base64")
-        : undefined,
-      studentSolutionMimeType: uploadedSolution?.type,
-      studentSolutionFilename: uploadedSolution?.name,
+    const result = await createFileNote({
+      supabase,
+      user,
+      formData,
+      requestId: String(formData.get("requestId") ?? "") || undefined,
     });
-  } catch {
-    await finalizeAiUsage({
-      userId: user.id,
-      requestKey: reservation.requestKey,
-      succeeded: false,
-      failureReason: "OpenAI file analysis failed",
-    });
-    redirect("/notes/new?error=" + encodeURIComponent("파일 분석에 실패했습니다. 다시 시도해주세요."));
-  }
-
-  await finalizeAiUsage({
-    userId: user.id,
-    requestKey: reservation.requestKey,
-    succeeded: analyzed.succeeded,
-    inputTokens: analyzed.usage.inputTokens,
-    outputTokens: analyzed.usage.outputTokens,
-  });
-
-  if (!analyzed.question || !analyzed.correctAnswer) {
-    redirect("/notes/new?error=" + encodeURIComponent("파일에서 문제와 정답을 읽어내지 못했습니다. 직접 입력을 이용해주세요."));
-  }
-
-  const resolvedSubjectId = await resolveSubjectId(
-    supabase,
-    user.id,
-    subjectId,
-    analyzed.details.subject,
-  );
-
-  const safeFilename = uploadedFile.name
-    .normalize("NFKC")
-    .replace(/[^a-zA-Z0-9._가-힣-]/g, "_")
-    .slice(-120);
-  const storagePath = `${user.id}/${crypto.randomUUID()}-${safeFilename || "problem-file"}`;
-  const { error: uploadError } = await supabase.storage
-    .from("note-files")
-    .upload(storagePath, arrayBuffer, { contentType: uploadedFile.type });
-
-  let studentSolutionPath: string | null = null;
-  let studentSolutionUploadError = false;
-  if (uploadedSolution && solutionArrayBuffer) {
-    const safeSolutionFilename = uploadedSolution.name
-      .normalize("NFKC")
-      .replace(/[^a-zA-Z0-9._가-힣-]/g, "_")
-      .slice(-120);
-    studentSolutionPath =
-      `${user.id}/${crypto.randomUUID()}-${safeSolutionFilename || "student-solution"}`;
-    const { error: solutionUploadError } = await supabase.storage
-      .from("note-files")
-      .upload(studentSolutionPath, solutionArrayBuffer, {
-        contentType: uploadedSolution.type,
-      });
-    studentSolutionUploadError = Boolean(solutionUploadError);
-    if (solutionUploadError) studentSolutionPath = null;
-  }
-
-  const { data, error } = await supabase
-    .from("notes")
-    .insert({
-      user_id: user.id,
-      subject_id: resolvedSubjectId,
-      source: source || null,
-      question: analyzed.question,
-      my_answer: (myAnswerHint || analyzed.myAnswer) || null,
-      correct_answer: correctAnswerHint || analyzed.correctAnswer,
-      ai_analysis: analyzed.analysis,
-      ai_details: analyzed.details,
-      mistake_type: analyzed.mistakeType,
-      tags: [
-        ...analyzed.tags,
-        learningStatus === "correct_review" ? "학습상태:맞았지만 복습" : "학습상태:틀린 문제",
-      ],
-      box_level: 1,
-      next_review_at: initialReviewDate().toISOString(),
-      mastered: false,
-      source_file_url: uploadError ? null : storagePath,
-      source_file_size_bytes: uploadError ? null : uploadedFile.size,
-      student_solution_file_url: studentSolutionPath,
-      student_solution_file_size_bytes:
-        studentSolutionUploadError ? null : (uploadedSolution?.size ?? null),
-    })
-    .select("id")
-    .single();
-
-  if (error || !data) {
-    const uploadedPaths = [
-      uploadError ? null : storagePath,
-      studentSolutionPath,
-    ].filter((path): path is string => Boolean(path));
-    if (uploadedPaths.length > 0) {
-      await supabase.storage.from("note-files").remove(uploadedPaths);
+    revalidatePath("/notes");
+    revalidatePath("/dashboard");
+    redirect(`/notes/${result.noteId}`);
+  } catch (error) {
+    if (error instanceof FileNoteCreationError) {
+      redirect("/notes/new?error=" + encodeURIComponent(error.message));
     }
-    redirect("/notes/new?error=" + encodeURIComponent(error?.message ?? "저장에 실패했습니다."));
+    throw error;
   }
-
-  revalidatePath("/notes");
-  revalidatePath("/dashboard");
-  redirect(`/notes/${data.id}`);
 }
 
 export async function deleteNote(formData: FormData) {

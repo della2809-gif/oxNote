@@ -24,14 +24,14 @@ export default async function DashboardPage() {
     { data: performanceSubscription },
   ] =
     await Promise.all([
-      supabase.from("notes").select("*", { count: "exact", head: true }),
-      supabase.from("notes").select("*", { count: "exact", head: true }).eq("mastered", true),
+      supabase.from("notes").select("id", { count: "exact", head: true }),
+      supabase.from("notes").select("id", { count: "exact", head: true }).eq("mastered", true),
       supabase
         .from("notes")
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
         .eq("mastered", false)
         .lte("next_review_at", new Date().toISOString()),
-      supabase.from("subjects").select("*").order("name"),
+      supabase.from("subjects").select("id, name, color").order("name"),
       supabase.from("review_logs").select("result, notes(subject_id)"),
       supabase
         .from("product_feature_flags")

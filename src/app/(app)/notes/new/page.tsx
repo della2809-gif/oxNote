@@ -11,7 +11,7 @@ export default async function NewNotePage({
 }) {
   const { error } = await searchParams;
   const supabase = await createClient();
-  const { data: subjects } = await supabase.from("subjects").select("*").order("name");
+  const { data: subjects } = await supabase.from("subjects").select("id, name, color").order("name");
 
   return (
     <div className="mx-auto max-w-6xl space-y-7">

@@ -68,11 +68,11 @@ export default async function ReviewPage({
   ] = await Promise.all([
     supabase
       .from("notes")
-      .select("*")
+      .select("id, subject_id, source, source_file_url, question, correct_answer, ai_analysis, ai_details, mistake_type, tags, box_level, next_review_at, mastered")
       .eq("mastered", false)
       .order("next_review_at", { ascending: true })
       .limit(200),
-    supabase.from("subjects").select("*").order("name"),
+    supabase.from("subjects").select("id, name, color").order("name"),
     supabase
       .from("review_goals")
       .select("id, subject_id, name, start_date, end_date, topics")

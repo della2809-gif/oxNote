@@ -2,6 +2,8 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 
+type ServerSupabaseClient = Awaited<ReturnType<typeof createClient>>;
+
 export type AiUsageKind = "text_analysis" | "file_analysis";
 
 export type AiUsageReservation = {
@@ -28,9 +30,12 @@ const FREE_ENTITLEMENTS: UserEntitlements = {
   monthlyStorageBytes: 50 * 1024 * 1024,
 };
 
-export async function getUserEntitlements(userId: string): Promise<UserEntitlements> {
+export async function getUserEntitlements(
+  userId: string,
+  existingClient?: ServerSupabaseClient,
+): Promise<UserEntitlements> {
   try {
-    const supabase = await createClient();
+    const supabase = existingClient ?? (await createClient());
     const { data: subscription } = await supabase
       .from("subscriptions")
       .select("status, plans(id, name, monthly_ai_credits, max_file_bytes, monthly_storage_bytes)")
@@ -54,13 +59,16 @@ export async function getUserEntitlements(userId: string): Promise<UserEntitleme
   }
 }
 
-export async function getMonthlyUploadedBytes(userId: string): Promise<number> {
+export async function getMonthlyUploadedBytes(
+  userId: string,
+  existingClient?: ServerSupabaseClient,
+): Promise<number> {
   try {
     const monthStart = new Date();
     monthStart.setUTCDate(1);
     monthStart.setUTCHours(0, 0, 0, 0);
 
-    const supabase = await createClient();
+    const supabase = existingClient ?? (await createClient());
     const { data, error } = await supabase
       .from("notes")
       .select("source_file_size_bytes")
@@ -77,11 +85,15 @@ export async function getMonthlyUploadedBytes(userId: string): Promise<number> {
 export async function reserveAiUsage(
   userId: string,
   kind: AiUsageKind,
+  existingClient?: ServerSupabaseClient,
+  requestedKey?: string,
 ): Promise<AiUsageReservation> {
-  const requestKey = crypto.randomUUID();
+  const requestKey = requestedKey && requestedKey.length >= 8
+    ? requestedKey.slice(0, 120)
+    : crypto.randomUUID();
 
   try {
-    const supabase = await createClient();
+    const supabase = existingClient ?? (await createClient());
     const { data, error } = await supabase.rpc("reserve_ai_usage", {
       target_user_id: userId,
       target_request_key: requestKey,
@@ -117,6 +129,7 @@ export async function finalizeAiUsage({
   inputTokens,
   outputTokens,
   failureReason,
+  existingClient,
 }: {
   userId: string;
   requestKey: string;
@@ -124,9 +137,10 @@ export async function finalizeAiUsage({
   inputTokens?: number;
   outputTokens?: number;
   failureReason?: string;
+  existingClient?: ServerSupabaseClient;
 }) {
   try {
-    const supabase = await createClient();
+    const supabase = existingClient ?? (await createClient());
     const { error } = await supabase.rpc("finalize_ai_usage", {
       target_user_id: userId,
       target_request_key: requestKey,

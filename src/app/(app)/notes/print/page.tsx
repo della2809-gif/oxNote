@@ -51,8 +51,11 @@ export default async function PrintNotesPage({
 
   const supabase = await createClient();
   const [{ data: notesData }, { data: subjectsData }] = await Promise.all([
-    supabase.from("notes").select("*").in("id", ids),
-    supabase.from("subjects").select("*"),
+    supabase
+      .from("notes")
+      .select("id, subject_id, source, source_file_url, question, my_answer, correct_answer, ai_analysis, ai_details, user_mistake_reason, box_level")
+      .in("id", ids),
+    supabase.from("subjects").select("id, name, color"),
   ]);
   const notes = (notesData as Note[] | null) ?? [];
   const noteMap = new Map(notes.map((note) => [note.id, note]));

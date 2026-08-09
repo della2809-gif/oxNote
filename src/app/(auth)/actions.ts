@@ -4,8 +4,19 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-function authErrorMessage(code?: string) {
-  if (code === "invalid_credentials") {
+function authErrorMessage(
+  code?: string,
+  message?: string,
+  name?: string,
+  status?: number,
+) {
+  if (name === "AuthRetryableFetchError" || status === 0) {
+    return "인증 서버에 연결하지 못했습니다. 로컬 서버의 네트워크 연결을 확인한 후 다시 시도해 주세요.";
+  }
+  if (
+    code === "invalid_credentials"
+    || message?.toLowerCase().includes("invalid login credentials")
+  ) {
     return "이메일 또는 비밀번호가 올바르지 않습니다. 기존 계정이라면 비밀번호를 재설정해 주세요.";
   }
   if (code === "email_not_confirmed") {
@@ -61,10 +72,15 @@ export async function signIn(formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    redirect(`/login?error=${encodeURIComponent(authErrorMessage(error.code))}&next=${encodeURIComponent(next)}`);
+    console.warn("[AUTH] sign_in_failed", {
+      code: error.code,
+      status: error.status,
+      name: error.name,
+    });
+    redirect(`/login?error=${encodeURIComponent(authErrorMessage(error.code, error.message, error.name, error.status))}&next=${encodeURIComponent(next)}`);
   }
 
-  if (next === "/dashboard") {
+  if (next === "/dashboard" && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const admin = createAdminClient();
     const { data: pendingInvitation } = await admin
       .from("family_invitations")
@@ -140,7 +156,7 @@ export async function signUp(formData: FormData) {
   });
 
   if (error) {
-    redirect(`/signup?error=${encodeURIComponent(authErrorMessage(error.code))}`);
+    redirect(`/signup?error=${encodeURIComponent(authErrorMessage(error.code, error.message, error.name, error.status))}`);
   }
 
   if (data.user && data.user.identities?.length === 0) {
@@ -166,7 +182,12 @@ export async function requestPasswordReset(formData: FormData) {
   });
 
   if (error) {
-    redirect(`/forgot-password?error=${encodeURIComponent(authErrorMessage(error.code))}`);
+    console.warn("[AUTH] password_reset_failed", {
+      code: error.code,
+      status: error.status,
+      name: error.name,
+    });
+    redirect(`/forgot-password?error=${encodeURIComponent(authErrorMessage(error.code, error.message, error.name, error.status))}`);
   }
 
   redirect(
@@ -193,7 +214,7 @@ export async function resendSignupConfirmation(formData: FormData) {
 
   if (error) {
     redirect(
-      `/resend-confirmation?error=${encodeURIComponent(authErrorMessage(error.code))}`,
+      `/resend-confirmation?error=${encodeURIComponent(authErrorMessage(error.code, error.message, error.name, error.status))}`,
     );
   }
 
@@ -227,7 +248,7 @@ export async function updatePassword(formData: FormData) {
   const { error } = await supabase.auth.updateUser({ password });
 
   if (error) {
-    redirect(`/update-password?error=${encodeURIComponent(authErrorMessage(error.code))}`);
+    redirect(`/update-password?error=${encodeURIComponent(authErrorMessage(error.code, error.message, error.name, error.status))}`);
   }
 
   await supabase.auth.signOut();

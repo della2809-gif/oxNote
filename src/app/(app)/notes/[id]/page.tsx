@@ -97,16 +97,20 @@ export default async function NoteDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: note } = await supabase.from("notes").select("*").eq("id", id).single();
+  const { data: note } = await supabase
+    .from("notes")
+    .select("id, user_id, subject_id, source, source_file_url, source_file_size_bytes, student_solution_file_url, student_solution_file_size_bytes, question, my_answer, correct_answer, ai_analysis, ai_details, user_mistake_reason, mistake_type, tags, box_level, next_review_at, mastered, created_at, updated_at")
+    .eq("id", id)
+    .single();
   if (!note) notFound();
 
   const typedNote = note as Note;
   const details = asDetails(typedNote.ai_details);
-  let subject: Subject | null = null;
+  let subject: Pick<Subject, "id" | "name" | "color"> | null = null;
   if (typedNote.subject_id) {
     const { data } = await supabase
       .from("subjects")
-      .select("*")
+      .select("id, name, color")
       .eq("id", typedNote.subject_id)
       .single();
     subject = data;
