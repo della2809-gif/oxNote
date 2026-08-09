@@ -62,18 +62,18 @@ export function BulkNotesForm({
         </div>
 
         {resultCount > 0 && (
-          <div className="flex w-full flex-wrap items-center justify-end gap-2 lg:w-auto">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end lg:w-auto">
             <button
               type="button"
               onClick={toggleAll}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+              className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50 sm:w-auto"
             >
               {selectedCount === resultCount ? "전체 해제" : "전체 선택"}
             </button>
             <button
               type="submit"
               disabled={selectedCount === 0 || selectedCount > 20}
-              className="rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-sm font-bold text-indigo-600 shadow-sm transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-40"
+              className="min-h-11 w-full rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-sm font-bold text-indigo-600 shadow-sm transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
             >
               인쇄 · PDF 저장
             </button>
@@ -81,7 +81,7 @@ export function BulkNotesForm({
               name="targetSubjectId"
               defaultValue=""
               aria-label="이동할 과목"
-              className="min-w-[150px] rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700"
+              className="min-h-11 min-w-0 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 sm:min-w-[150px] sm:w-auto"
             >
               <option value="">이동할 과목</option>
               <option value="__none__">과목 없음</option>
@@ -94,7 +94,7 @@ export function BulkNotesForm({
               formAction={moveSelectedNotes}
               formTarget="_self"
               disabled={selectedCount === 0 || selectedCount > 100}
-              className="rounded-xl border border-amber-200 bg-white px-4 py-2.5 text-sm font-bold text-amber-700 shadow-sm transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40"
+              className="min-h-11 w-full rounded-xl border border-amber-200 bg-white px-4 py-2.5 text-sm font-bold text-amber-700 shadow-sm transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
             >
               과목 이동
             </button>
@@ -108,7 +108,7 @@ export function BulkNotesForm({
                   event.preventDefault();
                 }
               }}
-              className="rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-bold text-rose-600 shadow-sm transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+              className="col-span-2 min-h-11 w-full rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-bold text-rose-600 shadow-sm transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40 sm:col-span-1 sm:w-auto"
             >
               삭제
             </button>

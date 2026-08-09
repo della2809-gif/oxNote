@@ -206,7 +206,7 @@ export default async function AppLayout({
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="shrink-0 text-slate-600 transition hover:text-slate-950 dark:text-neutral-400 dark:hover:text-white"
+                  className="inline-flex min-h-11 shrink-0 items-center text-slate-600 transition hover:text-slate-950 dark:text-neutral-400 dark:hover:text-white"
                 >
                   {link.label}
                 </Link>
@@ -232,7 +232,7 @@ export default async function AppLayout({
               </span>
               <button
                 type="submit"
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
+                className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
               >
                 로그아웃
               </button>

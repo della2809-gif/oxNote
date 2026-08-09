@@ -366,7 +366,7 @@ export default async function NoteDetailPage({
                     <div>
                       <p className="text-xs font-bold text-emerald-700">{step.title}</p>
                       <p className="mt-1.5 text-sm font-semibold leading-6 text-slate-800"><MathText>{step.explanation}</MathText></p>
-                      {step.formula && <p className="mt-2 whitespace-pre-wrap rounded-lg bg-white px-3 py-2 text-sm leading-7 text-slate-700"><MathText>{step.formula}</MathText></p>}
+                      {step.formula && <p className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-lg bg-white px-3 py-2 text-sm leading-7 text-slate-700"><MathText>{step.formula}</MathText></p>}
                     </div>
                   </div>
                 ))}

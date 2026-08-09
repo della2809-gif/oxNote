@@ -86,7 +86,7 @@ export default async function NotesPreviewPage({
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">과목별 보기</p>
               <span className="text-xs font-bold text-indigo-600">과목 관리 →</span>
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="-mx-2 mt-3 flex flex-nowrap items-center gap-2 overflow-x-auto px-2 pb-2 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
               <Link
                 href="/preview/notes"
                 className={`rounded-full border px-4 py-2 text-sm font-bold ${
@@ -130,7 +130,7 @@ export default async function NotesPreviewPage({
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400">분류 기준</p>
                 <p className="text-xs font-medium text-slate-400">{activeSubject.name} 과목 세부 보기</p>
               </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="mt-3 grid gap-2 md:grid-cols-2 lg:grid-cols-5">
                 {CLASSIFICATIONS.map((item) => (
                   <div key={item.label} className="rounded-xl border border-slate-200 p-3">
                     <span className="block text-sm font-bold text-slate-700">{item.label}</span>

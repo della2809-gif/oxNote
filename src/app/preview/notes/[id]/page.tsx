@@ -86,10 +86,10 @@ export default async function PreviewNoteDetailPage({ params }: { params: Promis
       <div className="mx-auto max-w-6xl space-y-6 px-4 py-7 sm:px-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link href="/preview/notes" className="text-sm font-bold text-indigo-600">← 오답노트</Link>
-          <div className="flex gap-2">
-            <span className="rounded-xl bg-indigo-50 px-4 py-2.5 text-sm font-bold text-indigo-600">+ 새 문제 분석</span>
-            <span className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white">저장</span>
-            <span className="rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-bold text-rose-500">삭제</span>
+          <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto">
+            <span className="grid min-h-11 place-items-center rounded-xl bg-indigo-50 px-2 py-2.5 text-center text-xs font-bold text-indigo-600 sm:px-4 sm:text-sm">+ 새 문제 분석</span>
+            <span className="grid min-h-11 place-items-center rounded-xl bg-indigo-600 px-2 py-2.5 text-center text-xs font-bold text-white sm:px-4 sm:text-sm">저장</span>
+            <span className="grid min-h-11 place-items-center rounded-xl border border-rose-200 px-2 py-2.5 text-center text-xs font-bold text-rose-500 sm:px-4 sm:text-sm">삭제</span>
           </div>
         </div>
 
@@ -145,7 +145,7 @@ export default async function PreviewNoteDetailPage({ params }: { params: Promis
                     <div>
                       <p className="text-sm font-bold text-slate-800">{step.title}</p>
                       <p className="mt-1 text-sm leading-6 text-slate-600">{step.body}</p>
-                      <p className="mt-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-700">{step.formula}</p>
+                      <p className="mt-2 overflow-x-auto rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-700">{step.formula}</p>
                     </div>
                   </div>
                 ))}

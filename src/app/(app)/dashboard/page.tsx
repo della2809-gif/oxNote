@@ -70,7 +70,7 @@ export default async function DashboardPage() {
     <div className="space-y-8">
       <h1 className="text-xl font-semibold">홈</h1>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         <StatCard label="전체오답" value={totalNotes ?? 0} />
         <StatCard label="복습완료" value={masteredNotes ?? 0} />
         <StatCard label="오늘의복습" value={dueToday ?? 0} href="/review" />
@@ -85,14 +85,14 @@ export default async function DashboardPage() {
             return (
               <div
                 key={subject.id}
-                className="flex items-center justify-between rounded-lg border border-neutral-200 px-4 py-3 dark:border-neutral-800"
+                className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-neutral-200 px-4 py-3 dark:border-neutral-800"
               >
-                <span className="flex items-center gap-2 text-sm font-medium">
+                <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: subject.color }} />
-                  {subject.name}
+                  <span className="truncate">{subject.name}</span>
                 </span>
                 <div className="flex items-center gap-3">
-                  <div className="h-2 w-32 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
+                  <div className="h-2 w-20 overflow-hidden rounded-full bg-neutral-100 sm:w-32 dark:bg-neutral-800">
                     <div
                       className="h-full rounded-full bg-neutral-900 dark:bg-white"
                       style={{ width: `${rate ?? 0}%` }}

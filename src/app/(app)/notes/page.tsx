@@ -180,7 +180,7 @@ export default async function NotesPage({
             <Link href="/subjects" className="text-xs font-bold text-indigo-600 hover:text-indigo-700">과목 관리 →</Link>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="-mx-2 mt-3 flex flex-nowrap items-center gap-2 overflow-x-auto px-2 pb-2 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
             <Link
               href={notesHref({ query: searchQuery, sort: sortOrder })}
               className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
@@ -263,7 +263,7 @@ export default async function NotesPage({
         {subjectFilter && (
           <div className="border-t border-slate-100 pt-5">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-400">분류 기준</p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="mt-3 grid gap-2 md:grid-cols-2 lg:grid-cols-5">
               {CLASSIFICATIONS.map((item) => (
                 <Link
                   key={item.key}
@@ -360,7 +360,7 @@ export default async function NotesPage({
 
             return (
               <li key={note.id} className="relative">
-                <label className="absolute left-4 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 cursor-pointer place-items-center rounded-xl border border-slate-200 bg-white shadow-sm">
+                <label className="absolute left-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 cursor-pointer place-items-center rounded-xl border border-slate-200 bg-white shadow-sm sm:left-4">
                   <span className="sr-only">이 문제 선택</span>
                   <input
                     type="checkbox"
@@ -371,7 +371,7 @@ export default async function NotesPage({
                 </label>
                 <Link
                   href={`/notes/${note.id}`}
-                  className="group block py-4 pl-16 pr-5 transition hover:bg-slate-50"
+                  className="group block py-4 pl-[4.25rem] pr-4 transition hover:bg-slate-50 sm:pl-16 sm:pr-5"
                 >
                   <div className="flex flex-wrap items-center gap-2 text-xs">
                     {subject && (
@@ -403,7 +403,7 @@ export default async function NotesPage({
                     )}
                   </div>
 
-                  <div className="mt-2 flex items-start justify-between gap-4">
+                  <div className="mt-2 flex flex-col items-start gap-2 sm:flex-row sm:justify-between sm:gap-4">
                     <div className="min-w-0">
                       <p className="line-clamp-1 text-sm font-bold leading-6 text-slate-800 group-hover:text-indigo-700">
                         {details.title || note.question}
@@ -412,7 +412,7 @@ export default async function NotesPage({
                         <p className="mt-1 line-clamp-1 text-xs text-slate-400">{note.question}</p>
                       )}
                     </div>
-                    <span className="flex shrink-0 items-center gap-3 text-xs text-slate-400">
+                    <span className="flex shrink-0 items-center gap-3 self-end text-xs text-slate-400 sm:self-auto">
                       {new Date(note.updated_at).toLocaleDateString("ko-KR")}
                       <span className="text-base text-slate-300 transition group-hover:translate-x-1 group-hover:text-indigo-500">→</span>
                     </span>

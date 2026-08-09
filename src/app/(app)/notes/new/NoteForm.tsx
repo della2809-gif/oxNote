@@ -382,7 +382,7 @@ export default function NoteForm({
       <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
           <div
-            className="flex min-h-[410px] flex-col overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-slate-50"
+            className="flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-slate-50 sm:min-h-[410px]"
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => {
               event.preventDefault();
@@ -560,7 +560,7 @@ export default function NoteForm({
           </div>
         </section>
 
-        <section className="flex min-h-[560px] flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <section className="flex min-h-[420px] flex-col rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:min-h-[560px] sm:p-8">
           <div className="flex flex-1 flex-col items-center justify-center text-center">
             <span className="grid h-16 w-16 place-items-center rounded-2xl bg-indigo-50 text-indigo-600">
               <SparkIcon />
