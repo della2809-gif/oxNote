@@ -98,18 +98,18 @@ export default async function NotesPage({
 }) {
   const params = await searchParams;
   const subjectFilter = params.subject ?? "";
-  const classification = CLASSIFICATIONS.some((item) => item.key === params.classification)
+  const classification = subjectFilter && CLASSIFICATIONS.some((item) => item.key === params.classification)
     ? (params.classification as ClassificationKey)
     : undefined;
-  const valueFilter = params.value?.trim() ?? "";
+  const valueFilter = classification ? (params.value?.trim() ?? "") : "";
   const searchQuery = params.q?.trim() ?? "";
   const sortOrder: SortOrder = params.sort === "oldest" ? "oldest" : "newest";
 
   const supabase = await createClient();
   let notesQuery = supabase
     .from("notes")
-    .select("id, subject_id, source, question, correct_answer, ai_details, mistake_type, user_mistake_reason, tags, mastered, created_at")
-    .order("created_at", { ascending: sortOrder === "oldest" });
+    .select("id, subject_id, source, question, correct_answer, ai_details, mistake_type, user_mistake_reason, tags, mastered, created_at, updated_at")
+    .order("updated_at", { ascending: sortOrder === "oldest" });
   if (subjectFilter) notesQuery = notesQuery.eq("subject_id", subjectFilter);
   const [{ data: subjectsData }, { data: notesData }] = await Promise.all([
     supabase.from("subjects").select("id, name, color").order("name"),
@@ -182,7 +182,7 @@ export default async function NotesPage({
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Link
-              href={notesHref({ classification, query: searchQuery, sort: sortOrder })}
+              href={notesHref({ query: searchQuery, sort: sortOrder })}
               className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
                 !subjectFilter
                   ? "border-slate-900 bg-slate-900 text-white"
@@ -260,36 +260,38 @@ export default async function NotesPage({
           </div>
         </div>
 
-        <div className="border-t border-slate-100 pt-5">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">분류 기준</p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-            {CLASSIFICATIONS.map((item) => (
-              <Link
-                key={item.key}
-                href={notesHref({
-                  subject: subjectFilter,
-                  classification: item.key,
-                  query: searchQuery,
-                  sort: sortOrder,
-                })}
-                className={`rounded-xl border p-3 transition ${
-                  classification === item.key
-                    ? "border-indigo-500 bg-indigo-50"
-                    : "border-slate-200 hover:border-indigo-200 hover:bg-slate-50"
-                }`}
-              >
-                <span
-                  className={`block text-sm font-bold ${
-                    classification === item.key ? "text-indigo-700" : "text-slate-700"
+        {subjectFilter && (
+          <div className="border-t border-slate-100 pt-5">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">분류 기준</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+              {CLASSIFICATIONS.map((item) => (
+                <Link
+                  key={item.key}
+                  href={notesHref({
+                    subject: subjectFilter,
+                    classification: item.key,
+                    query: searchQuery,
+                    sort: sortOrder,
+                  })}
+                  className={`rounded-xl border p-3 transition ${
+                    classification === item.key
+                      ? "border-indigo-500 bg-indigo-50"
+                      : "border-slate-200 hover:border-indigo-200 hover:bg-slate-50"
                   }`}
                 >
-                  {item.label}
-                </span>
-                <span className="mt-1 block text-xs text-slate-400">{item.description}</span>
-              </Link>
-            ))}
+                  <span
+                    className={`block text-sm font-bold ${
+                      classification === item.key ? "text-indigo-700" : "text-slate-700"
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+                  <span className="mt-1 block text-xs text-slate-400">{item.description}</span>
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {classification && (
           <div className="mt-5 rounded-2xl bg-slate-50 p-4">
@@ -394,11 +396,6 @@ export default async function NotesPage({
                         {details.questionType}
                       </span>
                     )}
-                    {note.mistake_type && (
-                      <span className="rounded-full bg-rose-50 px-2.5 py-1 font-medium text-rose-600">
-                        {note.mistake_type}
-                      </span>
-                    )}
                     {note.mastered && (
                       <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-bold text-emerald-600">
                         완전 학습
@@ -416,7 +413,7 @@ export default async function NotesPage({
                       )}
                     </div>
                     <span className="flex shrink-0 items-center gap-3 text-xs text-slate-400">
-                      {new Date(note.created_at).toLocaleDateString("ko-KR")}
+                      {new Date(note.updated_at).toLocaleDateString("ko-KR")}
                       <span className="text-base text-slate-300 transition group-hover:translate-x-1 group-hover:text-indigo-500">→</span>
                     </span>
                   </div>

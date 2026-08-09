@@ -362,15 +362,21 @@ export async function updateNoteMistakeReason(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  await supabase
+  const { data: updatedNote, error } = await supabase
     .from("notes")
     .update({ user_mistake_reason: userMistakeReason || null })
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !updatedNote) {
+    redirect(`/notes/${id}?error=${encodeURIComponent("내가 틀린 이유를 저장하지 못했습니다. 다시 시도해 주세요.")}`);
+  }
 
   revalidatePath(`/notes/${id}`);
   revalidatePath("/notes");
-  redirect("/notes?classification=reason");
+  redirect("/notes?success=" + encodeURIComponent("수정한 오답을 최신 목록에 반영했습니다."));
 }
 
 export async function updateNoteExtractedContent(formData: FormData) {
@@ -398,7 +404,7 @@ export async function updateNoteExtractedContent(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  await supabase
+  const { data: updatedNote, error } = await supabase
     .from("notes")
     .update({
       question,
@@ -407,13 +413,19 @@ export async function updateNoteExtractedContent(formData: FormData) {
       source: source || null,
     })
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !updatedNote) {
+    redirect(`/notes/${id}?error=${encodeURIComponent("수정 내용을 저장하지 못했습니다. 다시 시도해 주세요.")}`);
+  }
 
   revalidatePath(`/notes/${id}`);
   revalidatePath("/notes");
   revalidatePath("/review");
   revalidatePath("/dashboard");
-  redirect("/notes?classification=reason");
+  redirect("/notes?success=" + encodeURIComponent("수정한 오답을 최신 목록에 반영했습니다."));
 }
 
 export async function submitReview(formData: FormData) {
