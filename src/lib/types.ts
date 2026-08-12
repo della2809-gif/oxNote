@@ -65,6 +65,32 @@ export type MathVerification = {
   replacements?: Array<{ from: string; to: string }>;
 };
 
+export type HandwritingPoint = {
+  x: number;
+  y: number;
+  pressure: number;
+  timestamp: number;
+};
+
+export type HandwritingStroke = {
+  id: string;
+  tool: "pen" | "eraser";
+  pointerType: "pen" | "touch" | "mouse";
+  color: string;
+  width: number;
+  points: HandwritingPoint[];
+};
+
+export type HandwritingArtifact = {
+  kind: "handwriting";
+  version: 1;
+  width: number;
+  height: number;
+  strokes: HandwritingStroke[];
+  recognizedText?: string;
+  recognizedLatex?: string;
+};
+
 export type NoteAiDetails = {
   title: string;
   subject: string;
@@ -81,6 +107,7 @@ export type NoteAiDetails = {
   answerSummary: string;
   confusionPoints: NoteConfusionPoint[];
   mathVerification?: MathVerification;
+  inputArtifact?: HandwritingArtifact;
 };
 
 export type Plan = {

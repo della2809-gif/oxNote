@@ -30,6 +30,18 @@ export type FileAnalysisResult = TextAnalysisResult & {
   details: NoteAiDetails;
 };
 
+export type HandwritingRecognitionResult = {
+  recognizedText: string;
+  latex: string;
+  confidence: "low" | "medium" | "high";
+  warnings: string[];
+  succeeded: boolean;
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+  };
+};
+
 export type AnalysisStreamUpdate = {
   delta: string;
   outputText: string;
@@ -143,6 +155,32 @@ const TEXT_ANALYSIS_SCHEMA = {
     tags: { type: "array", items: { type: "string" }, description: "관련 핵심 개념 키워드" },
   },
   required: ["analysis", "mistake_type", "tags"],
+  additionalProperties: false,
+};
+
+const HANDWRITING_RECOGNITION_SCHEMA = {
+  type: "object",
+  properties: {
+    recognized_text: {
+      type: "string",
+      description: "손글씨에서 읽은 문제 전문. 줄바꿈, 보기, 단위와 수식을 보존",
+    },
+    latex: {
+      type: "string",
+      description: "수학 수식이 있으면 LaTeX로 정규화한 표현. 수식이 없으면 빈 문자열",
+    },
+    confidence: {
+      type: "string",
+      enum: ["low", "medium", "high"],
+      description: "전체 판독 신뢰도",
+    },
+    warnings: {
+      type: "array",
+      items: { type: "string" },
+      description: "판독이 불확실한 기호나 영역. 없으면 빈 배열",
+    },
+  },
+  required: ["recognized_text", "latex", "confidence", "warnings"],
   additionalProperties: false,
 };
 
@@ -343,6 +381,8 @@ export async function analyzeFromFile({
   subject,
   myAnswerHint,
   correctAnswerHint,
+  recognizedQuestionHint,
+  recognizedLatex,
   learningStatus,
   studentSolutionBase64,
   studentSolutionMimeType,
@@ -355,6 +395,8 @@ export async function analyzeFromFile({
   subject: string;
   myAnswerHint: string;
   correctAnswerHint: string;
+  recognizedQuestionHint?: string;
+  recognizedLatex?: string;
   learningStatus: "incorrect" | "correct_review";
   studentSolutionBase64?: string;
   studentSolutionMimeType?: string;
@@ -390,6 +432,12 @@ export async function analyzeFromFile({
       : null;
 
   const hintLines = [
+    recognizedQuestionHint
+      ? `사용자가 손글씨 인식 결과를 확인하거나 수정한 문제 전문: ${recognizedQuestionHint}. 이 텍스트를 문제의 기준으로 사용하고 원본 필기 이미지와 대조해 기호와 수식을 확인해 주세요.`
+      : null,
+    recognizedLatex
+      ? `손글씨에서 인식하고 사용자가 확인한 수식 LaTeX: ${recognizedLatex}. 문제 전문과 원본 이미지가 충돌하면 사용자가 확인한 내용을 우선하세요.`
+      : null,
     subject ? `과목: ${subject}` : null,
     "첨부된 이미지 또는 PDF를 원본으로 보고 문제를 정확히 판독한 뒤, 문제를 독립적으로 처음부터 풀어줘.",
     "인쇄된 문제 조건과 학생 필기·채점 표시를 분리하고, recognized_conditions에서 모든 수치와 단위를 먼저 점검해줘.",
@@ -483,4 +531,75 @@ export async function analyzeFromFile({
     succeeded: true,
     usage: streamed.usage,
   };
+}
+
+export async function recognizeHandwritingImage({
+  imageBase64,
+  mimeType,
+  signal,
+}: {
+  imageBase64: string;
+  mimeType: string;
+  signal?: AbortSignal;
+}): Promise<HandwritingRecognitionResult> {
+  try {
+    const response = await getOpenAI().responses.create({
+      model: GPT_FAST_MODEL,
+      ...fastRequestOptions(),
+      input: [
+        {
+          role: "system",
+          content: [
+            "너는 한국어 손글씨 문제 인식기다.",
+            "풀이하거나 정답을 만들지 말고, 이미지에 작성된 문제만 정확히 옮긴다.",
+            "지수, 분수, 근호, 괄호, 부호, 소수점, 단위와 보기 번호를 보존한다.",
+            "수학식은 recognized_text에는 사람이 읽기 쉬운 일반 표기로, latex에는 LaTeX로 정규화한다.",
+            "불확실한 문자는 임의로 확정하지 말고 warnings에 적는다.",
+          ].join("\n"),
+        },
+        {
+          role: "user",
+          content: [
+            { type: "input_text", text: "이 손글씨 문제를 판독해 주세요." },
+            {
+              type: "input_image",
+              image_url: `data:${mimeType};base64,${imageBase64}`,
+              detail: OPENAI_IMAGE_DETAIL,
+            },
+          ],
+        },
+      ],
+      text: {
+        ...(usesFastGpt5 ? { verbosity: "low" as const } : {}),
+        format: {
+          type: "json_schema",
+          name: "handwriting_recognition",
+          strict: true,
+          schema: HANDWRITING_RECOGNITION_SCHEMA,
+        },
+      },
+    }, { signal });
+    const parsed = JSON.parse(response.output_text || "{}");
+    return {
+      recognizedText: String(parsed.recognized_text ?? ""),
+      latex: String(parsed.latex ?? ""),
+      confidence: parsed.confidence === "low" || parsed.confidence === "medium" ? parsed.confidence : "high",
+      warnings: Array.isArray(parsed.warnings) ? parsed.warnings.map(String) : [],
+      succeeded: true,
+      usage: {
+        inputTokens: response.usage?.input_tokens ?? 0,
+        outputTokens: response.usage?.output_tokens ?? 0,
+      },
+    };
+  } catch (error) {
+    console.error("recognizeHandwritingImage failed:", error);
+    return {
+      recognizedText: "",
+      latex: "",
+      confidence: "low",
+      warnings: [],
+      succeeded: false,
+      usage: { inputTokens: 0, outputTokens: 0 },
+    };
+  }
 }

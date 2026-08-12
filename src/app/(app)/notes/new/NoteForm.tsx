@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
-import type { Subject } from "@/lib/types";
+import type { HandwritingArtifact, Subject } from "@/lib/types";
 import { createNote, createNoteFromFile } from "../actions";
 import { createSubjectInline } from "../../subjects/actions";
 import ImageCropper, { compressImageFile } from "./ImageCropper";
+import HandwritingCanvas from "./HandwritingCanvas";
 
 const fieldClass =
   "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50";
@@ -104,7 +105,7 @@ export default function NoteForm({
   error?: string;
 }) {
   const router = useRouter();
-  const [mode, setMode] = useState<"file" | "manual">("file");
+  const [mode, setMode] = useState<"file" | "manual" | "pen">("file");
   const [problem, setProblem] = useState<FileSelection | null>(null);
   const [solution, setSolution] = useState<FileSelection | null>(null);
   const [subjectOptions, setSubjectOptions] = useState(subjects);
@@ -115,6 +116,10 @@ export default function NoteForm({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progressMessage, setProgressMessage] = useState("");
   const [analysisPreview, setAnalysisPreview] = useState<AnalysisPreview>({});
+  const [handwritingArtifact, setHandwritingArtifact] = useState<HandwritingArtifact | null>(null);
+  const [recognizedQuestion, setRecognizedQuestion] = useState("");
+  const [recognizedLatex, setRecognizedLatex] = useState("");
+  const fileFormRef = useRef<HTMLFormElement>(null);
   const problemInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const solutionInputRef = useRef<HTMLInputElement>(null);
@@ -250,13 +255,7 @@ export default function NoteForm({
   if (mode === "manual") {
     return (
       <div className="mx-auto max-w-3xl">
-        <button
-          type="button"
-          onClick={() => setMode("file")}
-          className="mb-5 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-        >
-          ← 사진·PDF 분석으로 돌아가기
-        </button>
+        <InputModeTabs mode={mode} onChange={setMode} />
         <form action={createNote} className="space-y-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <div>
             <h2 className="text-xl font-bold text-slate-900">문제 직접 입력</h2>
@@ -301,6 +300,7 @@ export default function NoteForm({
   return (
     <>
     <form
+      ref={fileFormRef}
       action={createNoteFromFile}
       className="space-y-5"
       onSubmit={submitFileAnalysis}
@@ -310,6 +310,38 @@ export default function NoteForm({
         name="subjectName"
         value={subjectOptions.find((subject) => subject.id === selectedSubjectId)?.name ?? ""}
       />
+      <input type="hidden" name="inputMode" value={mode === "pen" ? "handwriting" : "file"} />
+      <input type="hidden" name="handwritingStrokes" value={handwritingArtifact ? JSON.stringify(handwritingArtifact) : ""} />
+      <input type="hidden" name="recognizedQuestionHint" value={recognizedQuestion} />
+      <input type="hidden" name="recognizedLatex" value={recognizedLatex} />
+      <input
+        ref={problemInputRef}
+        id="problem-file"
+        type="file"
+        name="file"
+        accept="image/jpeg,image/png,image/webp,application/pdf"
+        onChange={(event) => {
+          if (cameraInputRef.current) cameraInputRef.current.value = "";
+          chooseProblemFile(event.target.files?.[0] ?? null);
+        }}
+        className="sr-only"
+      />
+      <input
+        ref={cameraInputRef}
+        id="problem-camera"
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={(event) => {
+          if (problemInputRef.current) problemInputRef.current.value = "";
+          chooseProblemFile(event.target.files?.[0] ?? null);
+        }}
+        className="sr-only"
+      />
+      <InputModeTabs mode={mode} onChange={(nextMode) => {
+        setMode(nextMode);
+        setClientError("");
+      }} />
       {(error || clientError) && (
         <div className="rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-sm font-medium text-red-600">
           {clientError || error}
@@ -381,6 +413,29 @@ export default function NoteForm({
 
       <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+          {mode === "pen" ? (
+            <HandwritingCanvas
+              onError={setClientError}
+              onReady={(payload) => {
+                if (!payload) {
+                  setHandwritingArtifact(null);
+                  setRecognizedQuestion("");
+                  setRecognizedLatex("");
+                  if (problemInputRef.current) problemInputRef.current.value = "";
+                  replaceSelection(null, problem, setProblem);
+                  return;
+                }
+                if (!setCanonicalProblemFile(payload.file)) {
+                  setClientError("이 브라우저에서는 손글씨 이미지를 첨부할 수 없습니다. 브라우저를 업데이트해 주세요.");
+                  return;
+                }
+                setHandwritingArtifact(payload.artifact);
+                setRecognizedQuestion(payload.recognizedText);
+                setRecognizedLatex(payload.recognizedLatex);
+              }}
+              onSolve={() => fileFormRef.current?.requestSubmit()}
+            />
+          ) : (
           <div
             className="flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-slate-50 sm:min-h-[410px]"
             onDragOver={(event) => event.preventDefault()}
@@ -390,31 +445,6 @@ export default function NoteForm({
               chooseProblemFile(dropped);
             }}
           >
-            <input
-              ref={problemInputRef}
-              id="problem-file"
-              type="file"
-              name="file"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
-              onChange={(event) => {
-                if (cameraInputRef.current) cameraInputRef.current.value = "";
-                chooseProblemFile(event.target.files?.[0] ?? null);
-              }}
-              className="sr-only"
-            />
-            <input
-              ref={cameraInputRef}
-              id="problem-camera"
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={(event) => {
-                if (problemInputRef.current) problemInputRef.current.value = "";
-                chooseProblemFile(event.target.files?.[0] ?? null);
-              }}
-              className="sr-only"
-            />
-
             {problem ? (
               <>
                 <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
@@ -492,6 +522,7 @@ export default function NoteForm({
               </div>
             )}
           </div>
+          )}
 
           <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-center justify-between gap-3">
@@ -608,17 +639,14 @@ export default function NoteForm({
           </div>
 
           <div className="mt-7 space-y-4">
-            <StreamingSubmitButton
-              ready={Boolean(problem) && !cropSource && !isProcessingSolution}
-              pending={isAnalyzing}
-            />
-            <button
-              type="button"
-              onClick={() => setMode("manual")}
-              className="w-full text-center text-sm font-semibold text-slate-400 hover:text-indigo-600"
-            >
-              파일 없이 문제 직접 입력하기
-            </button>
+            {mode === "file" ? (
+              <StreamingSubmitButton
+                ready={Boolean(problem) && !cropSource && !isProcessingSolution}
+                pending={isAnalyzing}
+              />
+            ) : (
+              <p className="text-center text-xs leading-5 text-slate-400">손글씨 인식 결과를 확인한 뒤 ‘문제 풀기’를 눌러주세요.</p>
+            )}
           </div>
         </section>
       </div>
@@ -642,6 +670,36 @@ export default function NoteForm({
       />
     )}
     </>
+  );
+}
+
+function InputModeTabs({
+  mode,
+  onChange,
+}: {
+  mode: "file" | "manual" | "pen";
+  onChange: (mode: "file" | "manual" | "pen") => void;
+}) {
+  const tabs: Array<{ id: "file" | "manual" | "pen"; label: string }> = [
+    { id: "manual", label: "키보드" },
+    { id: "pen", label: "펜" },
+    { id: "file", label: "사진" },
+  ];
+  return (
+    <div className="mb-5 grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" role="tablist" aria-label="문제 입력 방식">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          role="tab"
+          aria-selected={mode === tab.id}
+          onClick={() => onChange(tab.id)}
+          className={`min-h-12 rounded-xl px-4 py-3 text-sm font-bold transition ${mode === tab.id ? "bg-indigo-600 text-white shadow-sm" : "text-slate-500 hover:bg-slate-50 hover:text-indigo-600"}`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
   );
 }
 

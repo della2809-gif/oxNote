@@ -14,6 +14,7 @@ import {
 } from "./billing";
 import { GPT_FILE_MODEL } from "./openai";
 import { initialReviewDate } from "./spaced-repetition";
+import type { HandwritingArtifact, HandwritingPoint, HandwritingStroke } from "./types";
 
 const ACCEPTED_FILE_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
@@ -40,6 +41,66 @@ export class FileNoteCreationError extends Error {
 function readLearningStatus(formData: FormData) {
   const value = String(formData.get("learningStatus") ?? "");
   return value === "incorrect" || value === "correct_review" ? value : null;
+}
+
+function readHandwritingArtifact(formData: FormData): HandwritingArtifact | undefined {
+  if (String(formData.get("inputMode") ?? "") !== "handwriting") return undefined;
+  const raw = String(formData.get("handwritingStrokes") ?? "");
+  if (!raw || raw.length > 1_500_000) throw new FileNoteCreationError("손글씨 데이터가 너무 크거나 비어 있습니다.");
+
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    throw new FileNoteCreationError("손글씨 데이터를 읽을 수 없습니다. 다시 작성해 주세요.");
+  }
+  if (!value || typeof value !== "object") throw new FileNoteCreationError("손글씨 데이터 형식이 올바르지 않습니다.");
+  const candidate = value as Partial<HandwritingArtifact>;
+  if (candidate.kind !== "handwriting" || candidate.version !== 1 || !Array.isArray(candidate.strokes)) {
+    throw new FileNoteCreationError("손글씨 데이터 형식이 올바르지 않습니다.");
+  }
+  if (candidate.strokes.length > 500) throw new FileNoteCreationError("손글씨 획이 너무 많습니다.");
+
+  let pointCount = 0;
+  const strokes: HandwritingStroke[] = candidate.strokes.map((stroke, index) => {
+    if (!stroke || !Array.isArray(stroke.points)) throw new FileNoteCreationError("손글씨 획 데이터가 올바르지 않습니다.");
+    pointCount += stroke.points.length;
+    if (pointCount > 50_000) throw new FileNoteCreationError("손글씨 데이터가 너무 큽니다.");
+    const points: HandwritingPoint[] = stroke.points.map((point) => {
+      const x = Number(point.x);
+      const y = Number(point.y);
+      const pressure = Number(point.pressure);
+      const timestamp = Number(point.timestamp);
+      if (![x, y, pressure, timestamp].every(Number.isFinite)) {
+        throw new FileNoteCreationError("손글씨 좌표 데이터가 올바르지 않습니다.");
+      }
+      return {
+        x: Math.max(0, Math.min(1200, x)),
+        y: Math.max(0, Math.min(800, y)),
+        pressure: Math.max(0, Math.min(1, pressure)),
+        timestamp: Math.max(0, timestamp),
+      };
+    });
+    return {
+      id: String(stroke.id || `stroke-${index}`).slice(0, 100),
+      tool: stroke.tool === "eraser" ? "eraser" : "pen",
+      pointerType: stroke.pointerType === "pen" || stroke.pointerType === "touch" ? stroke.pointerType : "mouse",
+      color: typeof stroke.color === "string" ? stroke.color.slice(0, 20) : "#111827",
+      width: Math.max(1, Math.min(40, Number(stroke.width) || 4)),
+      points,
+    };
+  });
+  if (!strokes.some((stroke) => stroke.points.length > 0)) throw new FileNoteCreationError("작성된 손글씨가 없습니다.");
+
+  return {
+    kind: "handwriting",
+    version: 1,
+    width: 1200,
+    height: 800,
+    strokes,
+    recognizedText: String(formData.get("recognizedQuestionHint") ?? "").trim().slice(0, 10_000) || undefined,
+    recognizedLatex: String(formData.get("recognizedLatex") ?? "").trim().slice(0, 10_000) || undefined,
+  };
 }
 
 export async function lookupSubjectName(
@@ -162,6 +223,9 @@ export async function createFileNote({
   const subjectNameHint = String(formData.get("subjectName") ?? "").trim().slice(0, 100);
   const myAnswerHint = String(formData.get("myAnswerHint") ?? "").trim().slice(0, 5_000);
   const correctAnswerHint = String(formData.get("correctAnswerHint") ?? "").trim().slice(0, 5_000);
+  const handwritingArtifact = readHandwritingArtifact(formData);
+  const recognizedQuestionHint = handwritingArtifact?.recognizedText ?? "";
+  const recognizedLatex = handwritingArtifact?.recognizedLatex ?? "";
   const learningStatus = readLearningStatus(formData);
   const uploadedFile =
     selectedFile instanceof File && selectedFile.size > 0
@@ -216,6 +280,8 @@ export async function createFileNote({
     myAnswerHint,
     correctAnswerHint,
     learningStatus,
+    recognizedQuestionHint,
+    recognizedLatex,
   ]);
 
   onProgress?.({ stage: "cache", message: "같은 문제의 기존 분석을 확인하고 있어요." });
@@ -267,6 +333,8 @@ export async function createFileNote({
         subject: subjectName,
         myAnswerHint,
         correctAnswerHint,
+        recognizedQuestionHint,
+        recognizedLatex,
         learningStatus,
         studentSolutionBase64: solutionBase64,
         studentSolutionMimeType: uploadedSolution?.type,
@@ -329,6 +397,8 @@ export async function createFileNote({
     }
     throw error;
   }
+
+  if (recognizedQuestionHint) analyzed = { ...analyzed, question: recognizedQuestionHint };
 
   const [problemUpload, solutionUpload] = await uploadPromise;
   perf.measure("storage_upload", uploadStartedAt, {
@@ -402,7 +472,9 @@ export async function createFileNote({
       my_answer: myAnswerHint || analyzed.myAnswer || null,
       correct_answer: correctAnswerHint || analyzed.correctAnswer,
       ai_analysis: analyzed.analysis,
-      ai_details: analyzed.details,
+      ai_details: handwritingArtifact
+        ? { ...analyzed.details, inputArtifact: handwritingArtifact }
+        : analyzed.details,
       mistake_type: analyzed.mistakeType,
       tags: [...analyzed.tags, learningStatus === "correct_review" ? "학습상태:맞았지만 복습" : "학습상태:틀린 문제"],
       box_level: 1,
