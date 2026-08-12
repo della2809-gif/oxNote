@@ -443,7 +443,7 @@ export default async function NoteDetailPage({
             placeholder="예: 지문의 핵심어인 noise만 보고 세부 내용 문제라고 생각했다. 다음에는 각 문단의 공통 내용을 먼저 정리하겠다."
             className="w-full resize-y rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-7 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-50"
           />
-          <p className="mt-2 text-right text-xs text-slate-400">최대 2,000자 · 상단 저장 버튼으로 저장</p>
+          <p className="mt-2 text-right text-xs text-slate-400">최대 2,000자 · 상단 또는 하단 저장 버튼으로 저장</p>
         </form>
       </section>
 
@@ -488,6 +488,16 @@ export default async function NoteDetailPage({
           <span className="text-slate-500">다음 복습 · {new Date(typedNote.next_review_at).toLocaleDateString("ko-KR")}</span>
         )}
       </section>
+
+      <div className="flex w-full justify-end pb-2">
+        <button
+          type="submit"
+          form="mistake-reason-form"
+          className="min-h-12 w-full rounded-xl bg-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-100 transition hover:bg-indigo-700 sm:w-auto sm:min-w-28"
+        >
+          저장
+        </button>
+      </div>
     </div>
   );
 }
