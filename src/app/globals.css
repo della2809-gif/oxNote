@@ -100,15 +100,24 @@ button {
   }
 
   .print-sheet {
-    height: 297mm;
-    min-height: 297mm;
-    break-after: page;
-    page-break-after: always;
+    display: block;
+    height: auto;
+    min-height: 0;
+    width: 210mm;
+    overflow: visible;
+    padding: 8mm 10mm;
+    break-after: auto;
+    page-break-after: auto;
+    break-inside: auto;
+    page-break-inside: auto;
     box-shadow: none;
   }
 
-  .print-sheet:last-child {
-    break-after: auto;
-    page-break-after: auto;
+  .print-sheet + .print-sheet {
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .print-sheet footer {
+    margin-top: 8mm;
   }
 }
