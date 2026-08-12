@@ -57,7 +57,7 @@ export default function PrintToolbar({ count, initialSections, initialLayout }: 
         </div>
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_auto]">
+      <div className="mt-5 grid gap-6">
         <div>
           <div className="flex flex-wrap gap-2">
             {PRESETS.map((preset) => {
@@ -65,7 +65,7 @@ export default function PrintToolbar({ count, initialSections, initialLayout }: 
               return <button key={preset.label} type="button" onClick={() => apply(preset.sections, layout)} className={`min-h-10 rounded-xl border px-3 text-xs font-bold ${active ? "border-indigo-600 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-600"}`}>{preset.label}</button>;
             })}
           </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {PRINT_SECTIONS.map((option) => (
               <label key={option.key} className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border p-3 ${sections.includes(option.key) ? "border-indigo-300 bg-indigo-50" : "border-slate-200"}`}>
                 <input type="checkbox" checked={sections.includes(option.key)} onChange={() => toggleSection(option.key)} className="h-5 w-5 accent-indigo-600" />
@@ -75,7 +75,7 @@ export default function PrintToolbar({ count, initialSections, initialLayout }: 
           </div>
         </div>
 
-        <div className="min-w-[280px]">
+        <div className="w-full border-t border-slate-100 pt-5">
           <p className="text-sm font-bold">레이아웃</p>
           <div className="mt-2 grid grid-cols-3 gap-2">
             {LAYOUTS.map((option) => (
