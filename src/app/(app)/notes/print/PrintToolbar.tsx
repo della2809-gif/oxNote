@@ -20,12 +20,6 @@ const LAYOUTS: Array<{ key: PrintLayout; label: string; description: string }> =
   { key: "answer", label: "해설지형", description: "문제 분석 및 단계별 풀이를 위주로 배치하며 문제의 개념과 풀이 복습에 적합합니다." },
 ];
 
-const PRESETS: Array<{ label: string; sections: PrintSection[] }> = [
-  { label: "간단 오답노트", sections: ["source", "reason"] },
-  { label: "풀이 학습지", sections: ["source", "steps", "review"] },
-  { label: "전체 해설", sections: ["source", "analysis", "steps", "review", "reason"] },
-];
-
 export default function PrintToolbar({ count, initialSections, initialLayout }: { count: number; initialSections: PrintSection[]; initialLayout: PrintLayout }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -58,24 +52,7 @@ export default function PrintToolbar({ count, initialSections, initialLayout }: 
       </div>
 
       <div className="mt-5 grid gap-6">
-        <div>
-          <div className="flex flex-wrap gap-2">
-            {PRESETS.map((preset) => {
-              const active = preset.sections.length === sections.length && preset.sections.every((item) => sections.includes(item));
-              return <button key={preset.label} type="button" onClick={() => apply(preset.sections, layout)} className={`min-h-10 rounded-xl border px-3 text-xs font-bold ${active ? "border-indigo-600 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-600"}`}>{preset.label}</button>;
-            })}
-          </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            {PRINT_SECTIONS.map((option) => (
-              <label key={option.key} className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border p-3 ${sections.includes(option.key) ? "border-indigo-300 bg-indigo-50" : "border-slate-200"}`}>
-                <input type="checkbox" checked={sections.includes(option.key)} onChange={() => toggleSection(option.key)} className="h-5 w-5 accent-indigo-600" />
-                <span><strong className="block text-sm">{option.label}</strong><span className="text-[11px] text-slate-400">{option.description}</span></span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div className="w-full border-t border-slate-100 pt-5">
+        <div className="w-full">
           <p className="text-sm font-bold">레이아웃</p>
           <div className="mt-2 grid grid-cols-3 gap-2">
             {LAYOUTS.map((option) => (
@@ -92,6 +69,18 @@ export default function PrintToolbar({ count, initialSections, initialLayout }: 
               <p className="mt-2 text-xs leading-5 text-slate-600">{LAYOUTS.find((item) => item.key === openHelp)?.description}</p>
             </div>
           )}
+        </div>
+
+        <div className="border-t border-slate-100 pt-5">
+          <p className="mb-3 text-sm font-bold">인쇄할 내용</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {PRINT_SECTIONS.map((option) => (
+              <label key={option.key} className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border p-3 ${sections.includes(option.key) ? "border-indigo-300 bg-indigo-50" : "border-slate-200"}`}>
+                <input type="checkbox" checked={sections.includes(option.key)} onChange={() => toggleSection(option.key)} className="h-5 w-5 accent-indigo-600" />
+                <span><strong className="block text-sm">{option.label}</strong><span className="text-[11px] text-slate-400">{option.description}</span></span>
+              </label>
+            ))}
+          </div>
         </div>
       </div>
     </aside>

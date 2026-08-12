@@ -20,12 +20,6 @@ const SECTION_OPTIONS: Array<{ key: SectionKey; label: string; description: stri
   { key: "reason", label: "내가 틀린 이유", description: "직접 작성한 오답 원인" },
 ];
 
-const PRESETS: Array<{ label: string; sections: SectionKey[] }> = [
-  { label: "간단 오답노트", sections: ["source", "reason"] },
-  { label: "풀이 학습지", sections: ["source", "steps", "review"] },
-  { label: "전체 해설", sections: ["source", "analysis", "steps", "review", "reason"] },
-];
-
 const STEPS = [
   ["문장 구조 확인", "각 선택지에서 조동사와 일반동사의 결합 구조를 먼저 확인합니다."],
   ["need의 쓰임 구분", "need가 조동사라면 뒤에 동사원형이, 일반동사라면 문장 구조에 맞는 형태가 옵니다."],
@@ -63,38 +57,6 @@ export default function PrintOptionsPreview() {
           </div>
 
           <section>
-            <h2 className="text-sm font-bold">빠른 구성</h2>
-            <div className="mt-3 grid gap-2">
-              {PRESETS.map((preset) => {
-                const active = preset.sections.length === sections.length && preset.sections.every((item) => selected.has(item));
-                return (
-                  <button key={preset.label} type="button" onClick={() => setSections(preset.sections)} className={`min-h-11 rounded-xl border px-4 py-3 text-left text-sm font-bold transition ${active ? "border-indigo-600 bg-indigo-50 text-indigo-700" : "border-slate-200 hover:border-indigo-300"}`}>
-                    {preset.label}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="border-t border-slate-100 pt-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold">인쇄할 내용</h2>
-              <span className="text-xs text-slate-400">{sections.length}/5 선택</span>
-            </div>
-            <div className="mt-3 space-y-2">
-              {SECTION_OPTIONS.map((option) => (
-                <label key={option.key} className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border p-3 transition ${selected.has(option.key) ? "border-indigo-300 bg-indigo-50/70" : "border-slate-200"}`}>
-                  <input type="checkbox" checked={selected.has(option.key)} onChange={() => toggleSection(option.key)} className="h-5 w-5 accent-indigo-600" />
-                  <span>
-                    <strong className="block text-sm">{option.label}</strong>
-                    <span className="text-xs text-slate-400">{option.description}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </section>
-
-          <section className="border-t border-slate-100 pt-5">
             <h2 className="text-sm font-bold">레이아웃</h2>
             <div className="mt-3 grid grid-cols-3 gap-2">
               {LAYOUT_OPTIONS.map((option) => (
@@ -124,6 +86,24 @@ export default function PrintOptionsPreview() {
                 </div>
               </div>
             )}
+          </section>
+
+          <section className="border-t border-slate-100 pt-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold">인쇄할 내용</h2>
+              <span className="text-xs text-slate-400">{sections.length}/5 선택</span>
+            </div>
+            <div className="mt-3 space-y-2">
+              {SECTION_OPTIONS.map((option) => (
+                <label key={option.key} className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border p-3 transition ${selected.has(option.key) ? "border-indigo-300 bg-indigo-50/70" : "border-slate-200"}`}>
+                  <input type="checkbox" checked={selected.has(option.key)} onChange={() => toggleSection(option.key)} className="h-5 w-5 accent-indigo-600" />
+                  <span>
+                    <strong className="block text-sm">{option.label}</strong>
+                    <span className="text-xs text-slate-400">{option.description}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
           </section>
 
           <button type="button" onClick={() => window.print()} disabled={sections.length === 0} className="min-h-12 w-full rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-100 disabled:bg-slate-300">
