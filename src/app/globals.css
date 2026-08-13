@@ -54,8 +54,8 @@ button {
 
 .print-sheet {
   display: flex;
-  min-height: 297mm;
-  width: 210mm;
+  min-height: 0;
+  width: auto;
   flex-direction: column;
   overflow: hidden;
   background: white;
@@ -71,7 +71,46 @@ button {
   object-fit: contain;
 }
 
+.print-sheet-grid {
+  display: grid;
+  min-height: 297mm;
+  width: 210mm;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  background: white;
+  box-shadow: 0 12px 35px rgb(15 23 42 / 10%);
+}
+
+.print-question-transcript {
+  margin-top: 0.5rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.75;
+}
+
+.print-question-table {
+  width: 100%;
+  margin: 0.6rem 0;
+  border-collapse: collapse;
+  table-layout: fixed;
+  text-align: center;
+}
+
+.print-question-table th,
+.print-question-table td {
+  border: 1px solid #94a3b8;
+  padding: 0.3rem 0.2rem;
+}
+
 @media screen and (max-width: 850px) {
+  .print-sheet-grid {
+    min-height: auto;
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+
   .print-sheet {
     min-height: auto;
     width: 100%;
@@ -106,18 +145,45 @@ button {
     max-width: none !important;
   }
 
+  .print-sheet-grid {
+    display: grid;
+    width: 210mm;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    background: white;
+  }
+
   .print-sheet {
     display: block;
     height: auto;
     min-height: 0;
-    width: 210mm;
+    width: auto;
     overflow: visible;
-    padding: 8mm 10mm;
+    padding: 8mm 7mm;
     break-after: auto;
     page-break-after: auto;
     break-inside: auto;
     page-break-inside: auto;
     box-shadow: none;
+  }
+
+  .print-sheet:nth-child(odd) {
+    border-right: 0.25mm solid #cbd5e1;
+  }
+
+  .print-problem-sheet header {
+    break-after: avoid;
+  }
+
+  .print-question-box {
+    break-inside: auto;
+    border: 0;
+    padding: 0;
+  }
+
+  .print-question-transcript {
+    font-size: 10pt;
+    line-height: 1.75;
   }
 
   .print-sheet + .print-sheet {

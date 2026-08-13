@@ -7,7 +7,7 @@ export type PrintSection = "source" | "analysis" | "steps" | "review" | "reason"
 export type PrintLayout = "standard" | "worksheet" | "answer";
 
 export const PRINT_SECTIONS: Array<{ key: PrintSection; label: string; description: string }> = [
-  { key: "source", label: "문제 원본", description: "사진 또는 인식된 문제" },
+  { key: "source", label: "문제 전문", description: "원본에서 추출한 시험 문제" },
   { key: "analysis", label: "문제 분석", description: "핵심 개념과 정답" },
   { key: "steps", label: "단계별 풀이", description: "순서대로 정리한 풀이" },
   { key: "review", label: "다시 확인할 지점", description: "헷갈리기 쉬운 부분" },

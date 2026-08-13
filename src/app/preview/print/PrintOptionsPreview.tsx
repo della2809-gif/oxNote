@@ -13,7 +13,7 @@ const LAYOUT_OPTIONS: Array<{ key: LayoutKey; label: string; description: string
 ];
 
 const SECTION_OPTIONS: Array<{ key: SectionKey; label: string; description: string }> = [
-  { key: "source", label: "문제 원본", description: "사진 또는 인식된 문제" },
+  { key: "source", label: "문제 전문", description: "원본에서 추출한 시험 문제" },
   { key: "analysis", label: "문제 분석", description: "핵심 개념과 정답" },
   { key: "steps", label: "단계별 풀이", description: "순서대로 정리한 풀이" },
   { key: "review", label: "다시 확인할 지점", description: "헷갈리기 쉬운 부분" },
@@ -27,8 +27,8 @@ const STEPS = [
 ];
 
 export default function PrintOptionsPreview() {
-  const [sections, setSections] = useState<SectionKey[]>(["source", "steps", "reason"]);
-  const [layout, setLayout] = useState<LayoutKey>("standard");
+  const [sections, setSections] = useState<SectionKey[]>(["source"]);
+  const [layout, setLayout] = useState<LayoutKey>("worksheet");
   const [openLayoutHelp, setOpenLayoutHelp] = useState<LayoutKey | null>(null);
   const selected = useMemo(() => new Set(sections), [sections]);
 
@@ -137,17 +137,20 @@ export default function PrintOptionsPreview() {
 
             <div className={`mt-4 grid gap-4 ${selected.has("source") && selected.has("analysis") && layout === "standard" ? "md:grid-cols-2" : "grid-cols-1"}`}>
               {selected.has("source") && (
-                <PreviewBox title="문제 원본" color="text-indigo-600">
-                  <div className="mt-3 rounded-xl bg-slate-50 p-5 text-[12px] leading-7 text-slate-800">
-                    <strong>12번. 다음 중 어법상 올바른 문장은?</strong>
-                    <ol className="mt-3 list-decimal space-y-1 pl-5">
-                      <li>I studied hard lest I should not fail in the examination.</li>
-                      <li>It needs hardly be said that health is above wealth.</li>
-                      <li>It is necessary that you will realize the truth.</li>
-                      <li>You may well be proud of your wife.</li>
-                    </ol>
+                <section className="grid min-h-[230mm] grid-cols-2 divide-x divide-slate-300 border-y border-slate-300">
+                  <div className="p-6 text-[13px] leading-7 text-slate-900">
+                    <strong className="text-lg">1</strong>
+                    <p className="mt-3 font-semibold">다음 수의 제곱근을 구하시오.</p>
+                    <ol className="mt-4 grid grid-cols-2 gap-x-5 gap-y-4"><li>⑴ 64</li><li>⑵ 1</li><li>⑶ 100</li><li>⑷ 25</li><li>⑸ 7</li><li>⑹ 15</li></ol>
+                    <div className="mt-12 border-t border-dashed border-slate-300 pt-6"><strong className="text-lg">2</strong><p className="mt-3 font-semibold">다음 중 옳지 않은 것을 고르시오.</p><ol className="mt-4 space-y-3"><li>① 0의 제곱근은 0이다.</li><li>② 제곱근 6은 ±√6이다.</li><li>③ √5는 제곱근 5라고 읽는다.</li></ol></div>
                   </div>
-                </PreviewBox>
+                  <div className="p-6 text-[13px] leading-7 text-slate-900">
+                    <strong className="text-lg">3</strong>
+                    <p className="mt-3 font-semibold">인성이가 표를 만들어 두 수를 비교한 방법을 써 보세요.</p>
+                    <p className="mt-4 rounded-lg border border-slate-300 p-3">[말풍선: 인성] 올해 나는 13살, 형은 17살이에요. 나는 형보다 4살이 적어요.</p>
+                    <table className="mt-5 w-full border-collapse text-center text-xs"><thead><tr><th className="border border-slate-400 p-2">구분</th><th className="border border-slate-400 p-2">올해</th><th className="border border-slate-400 p-2">1년 후</th><th className="border border-slate-400 p-2">2년 후</th></tr></thead><tbody><tr><th className="border border-slate-400 p-2">내 나이</th><td className="border border-slate-400 p-2">13</td><td className="border border-slate-400 p-2">14</td><td className="border border-slate-400 p-2">15</td></tr><tr><th className="border border-slate-400 p-2">형 나이</th><td className="border border-slate-400 p-2">17</td><td className="border border-slate-400 p-2">18</td><td className="border border-slate-400 p-2">19</td></tr></tbody></table>
+                  </div>
+                </section>
               )}
 
               {selected.has("analysis") && (
