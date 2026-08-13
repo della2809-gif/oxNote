@@ -4,12 +4,11 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 
 type SectionKey = "source" | "analysis" | "steps" | "review" | "reason";
-type LayoutKey = "standard" | "worksheet" | "answer";
+type LayoutKey = "worksheet" | "answer";
 
 const LAYOUT_OPTIONS: Array<{ key: LayoutKey; label: string; description: string }> = [
-  { key: "standard", label: "기본형", description: "보관형 오답노트에 적합합니다." },
-  { key: "worksheet", label: "문제지형", description: "문제만 연속 출력되고, 분석 및 정답은 뒤쪽 해설 페이지로 분리되어 있습니다." },
-  { key: "answer", label: "해설지형", description: "문제 분석 및 단계별 풀이를 위주로 배치하며 문제의 개념과 풀이 복습에 적합합니다." },
+  { key: "worksheet", label: "문제지형", description: "선택한 문제 전문은 앞쪽 시험지에 모으고, 분석·풀이·정답은 새 페이지의 답지로 분리합니다." },
+  { key: "answer", label: "해설지형", description: "선택한 모든 내용을 문제별로 묶어 문제와 해설이 연속해서 나오도록 배치합니다." },
 ];
 
 const SECTION_OPTIONS: Array<{ key: SectionKey; label: string; description: string }> = [
@@ -27,7 +26,7 @@ const STEPS = [
 ];
 
 export default function PrintOptionsPreview() {
-  const [sections, setSections] = useState<SectionKey[]>(["source"]);
+  const [sections, setSections] = useState<SectionKey[]>(["source", "analysis", "steps"]);
   const [layout, setLayout] = useState<LayoutKey>("worksheet");
   const [openLayoutHelp, setOpenLayoutHelp] = useState<LayoutKey | null>(null);
   const selected = useMemo(() => new Set(sections), [sections]);
@@ -58,7 +57,7 @@ export default function PrintOptionsPreview() {
 
           <section>
             <h2 className="text-sm font-bold">레이아웃</h2>
-            <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="mt-3 grid grid-cols-2 gap-2">
               {LAYOUT_OPTIONS.map((option) => (
                 <div key={option.key} className="relative">
                   <button type="button" onClick={() => setLayout(option.key)} className={`min-h-11 w-full rounded-xl border px-2 pr-7 text-xs font-bold ${layout === option.key ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-200 text-slate-600"}`}>
@@ -115,7 +114,7 @@ export default function PrintOptionsPreview() {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
             <div>
               <h2 className="font-bold">선택한 오답 1개</h2>
-              <p className="mt-1 text-xs text-slate-500">예상 1페이지 · A4 세로 · {layout === "standard" ? "기본형" : layout === "worksheet" ? "문제지형" : "해설지형"}</p>
+              <p className="mt-1 text-xs text-slate-500">A4 세로 · {layout === "worksheet" ? "앞쪽 문제지 + 뒤쪽 답지" : "문제별 연속 해설"}</p>
             </div>
             <p className="text-xs font-semibold text-indigo-600">설정을 바꾸면 미리보기가 바로 갱신됩니다</p>
           </div>
@@ -135,9 +134,9 @@ export default function PrintOptionsPreview() {
 
             {sections.length === 0 && <div className="mt-8 rounded-2xl border-2 border-dashed border-slate-200 p-12 text-center text-sm text-slate-400">왼쪽에서 인쇄할 내용을 선택해 주세요.</div>}
 
-            <div className={`mt-4 grid gap-4 ${selected.has("source") && selected.has("analysis") && layout === "standard" ? "md:grid-cols-2" : "grid-cols-1"}`}>
+            <div className="mt-4 grid gap-4">
               {selected.has("source") && (
-                <section className="grid min-h-[230mm] grid-cols-2 divide-x divide-slate-300 border-y border-slate-300">
+                <section className={`${layout === "worksheet" ? "grid min-h-[230mm] grid-cols-2 divide-x divide-slate-300 border-y border-slate-300" : "rounded-2xl border border-slate-200"}`}>
                   <div className="p-6 text-[13px] leading-7 text-slate-900">
                     <strong className="text-lg">1</strong>
                     <p className="mt-3 font-semibold">다음 수의 제곱근을 구하시오.</p>
@@ -153,7 +152,7 @@ export default function PrintOptionsPreview() {
                 </section>
               )}
 
-              {selected.has("analysis") && (
+              {layout === "answer" && selected.has("analysis") && (
                 <PreviewBox title="문제 분석" color="text-emerald-600">
                   <p className="mt-3 text-[12px] font-semibold leading-6">조동사와 일반동사의 형태, 당위적 가정법, 관용 표현을 함께 구분하는 문제입니다.</p>
                   <dl className="mt-3 space-y-2 rounded-xl bg-slate-50 p-4 text-[11px]">
@@ -164,7 +163,7 @@ export default function PrintOptionsPreview() {
               )}
             </div>
 
-            {selected.has("steps") && (
+            {layout === "answer" && selected.has("steps") && (
               <section className="mt-4 rounded-2xl border border-slate-200 p-5">
                 <div className="flex items-center justify-between gap-3"><h3 className="text-xs font-bold text-indigo-600">단계별 풀이</h3><span className="text-[10px] font-bold text-emerald-600">정답 ④</span></div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-3">
@@ -178,7 +177,7 @@ export default function PrintOptionsPreview() {
               </section>
             )}
 
-            {(selected.has("review") || selected.has("reason")) && (
+            {layout === "answer" && (selected.has("review") || selected.has("reason")) && (
               <div className={`mt-4 grid gap-4 ${selected.has("review") && selected.has("reason") ? "sm:grid-cols-2" : "grid-cols-1"}`}>
                 {selected.has("review") && (
                   <PreviewBox title="다시 확인할 지점" color="text-amber-600">
@@ -197,6 +196,16 @@ export default function PrintOptionsPreview() {
               </div>
             )}
           </article>
+
+          {layout === "worksheet" && sections.some((section) => section !== "source") && (
+            <article className="mx-auto mt-6 min-h-[297mm] max-w-[210mm] bg-white p-[10mm] shadow-xl print:mt-0 print:min-h-0 print:max-w-none print:break-before-page print:p-0 print:shadow-none">
+              <header className="border-b border-slate-300 pb-4"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-600">XONOTE · 정답 및 해설</p><h2 className="mt-2 text-xl font-bold">앞쪽 문제지 답지</h2></header>
+              {selected.has("analysis") && <PreviewBox title="1. 문제 분석 및 정답" color="text-emerald-600"><p className="mt-3 text-sm leading-7">핵심 개념을 확인하고 정답을 제시합니다. <strong className="text-emerald-600">정답 ④</strong></p></PreviewBox>}
+              {selected.has("steps") && <section className="mt-4 rounded-2xl border border-slate-200 p-5"><h3 className="text-xs font-bold text-indigo-600">1. 단계별 풀이</h3><div className="mt-3 grid gap-3 sm:grid-cols-3">{STEPS.map(([title, body], index) => <div key={title} className="border-t border-slate-100 pt-3 text-[11px] leading-5"><strong>{index + 1}. {title}</strong><p className="mt-2 text-slate-600">{body}</p></div>)}</div></section>}
+              {selected.has("review") && <PreviewBox title="1. 다시 확인할 지점" color="text-amber-600"><p className="mt-3 text-sm leading-7">헷갈리기 쉬운 조건과 다음 복습 지점을 확인합니다.</p></PreviewBox>}
+              {selected.has("reason") && <PreviewBox title="1. 내가 틀린 이유" color="text-rose-600"><p className="mt-3 text-sm leading-7">직접 작성한 오답 원인이 표시됩니다.</p></PreviewBox>}
+            </article>
+          )}
         </section>
       </div>
     </main>

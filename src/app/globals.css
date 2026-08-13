@@ -81,6 +81,20 @@ button {
   box-shadow: 0 12px 35px rgb(15 23 42 / 10%);
 }
 
+.print-answer-section {
+  border-top: 8px solid #e2e8f0;
+}
+
+.print-solution-stream {
+  width: 210mm;
+  background: white;
+  box-shadow: 0 12px 35px rgb(15 23 42 / 10%);
+}
+
+.print-solution-stream .print-sheet {
+  width: 100%;
+}
+
 .print-question-transcript {
   margin-top: 0.5rem;
   white-space: pre-wrap;
@@ -109,6 +123,10 @@ button {
     min-height: auto;
     width: 100%;
     grid-template-columns: 1fr;
+  }
+
+  .print-solution-stream {
+    width: 100%;
   }
 
   .print-sheet {
@@ -151,6 +169,26 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
     background: white;
+  }
+
+  .print-answer-section {
+    break-before: page;
+    page-break-before: always;
+    border-top: 0;
+  }
+
+  .print-solution-stream {
+    width: 210mm;
+    box-shadow: none;
+  }
+
+  .print-solution-stream .print-sheet {
+    width: 210mm;
+    padding: 8mm 10mm;
+  }
+
+  .print-solution-stream .print-sheet:nth-child(odd) {
+    border-right: 0;
   }
 
   .print-sheet {

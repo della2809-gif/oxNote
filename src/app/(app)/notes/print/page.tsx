@@ -25,7 +25,7 @@ function readSections(raw: string | string[] | undefined) {
 
 function readLayout(raw: string | string[] | undefined): PrintLayout {
   const value = Array.isArray(raw) ? raw[0] : raw;
-  return value === "worksheet" || value === "answer" ? value : "standard";
+  return value === "answer" ? value : "worksheet";
 }
 
 type PrintableNote = { note: Note; details: Partial<NoteAiDetails>; subject: Subject | null };
@@ -60,19 +60,19 @@ export default async function PrintNotesPage({ searchParams }: { searchParams: P
   return (
     <div className="print-document mx-auto max-w-[210mm]">
       <PrintToolbar count={printable.length} initialSections={sections} initialLayout={layout} />
-      <div className="print-sheet-grid">
+      <div className={`print-layout print-layout-${layout}`}>
         {layout === "worksheet" ? (
           <>
-            {sections.includes("source") && printable.map((item, index) => <NoteSheet key={`problem-${item.note.id}`} item={item} index={index} total={printable.length} sections={["source"]} variant="problem" />)}
-            {sections.some((section) => section !== "source") && printable.map((item, index) => <NoteSheet key={`answer-${item.note.id}`} item={item} index={index} total={printable.length} sections={sections.filter((section) => section !== "source")} variant="solution" />)}
+            {sections.includes("source") && <section className="print-sheet-grid print-exam-section">{printable.map((item, index) => <NoteSheet key={`problem-${item.note.id}`} item={item} index={index} total={printable.length} sections={["source"]} variant="problem" />)}</section>}
+            {sections.some((section) => section !== "source") && <section className="print-sheet-grid print-answer-section">{printable.map((item, index) => <NoteSheet key={`answer-${item.note.id}`} item={item} index={index} total={printable.length} sections={sections.filter((section) => section !== "source")} variant="solution" />)}</section>}
           </>
-        ) : printable.map((item, index) => <NoteSheet key={item.note.id} item={item} index={index} total={printable.length} sections={sections} variant={layout === "answer" ? "answer" : "standard"} />)}
+        ) : <section className="print-solution-stream">{printable.map((item, index) => <NoteSheet key={item.note.id} item={item} index={index} total={printable.length} sections={sections} variant="answer" />)}</section>}
       </div>
     </div>
   );
 }
 
-function NoteSheet({ item, index, total, sections, variant }: { item: PrintableNote; index: number; total: number; sections: PrintSection[]; variant: "standard" | "problem" | "solution" | "answer" }) {
+function NoteSheet({ item, index, total, sections, variant }: { item: PrintableNote; index: number; total: number; sections: PrintSection[]; variant: "problem" | "solution" | "answer" }) {
   const { note, details, subject } = item;
   const has = (section: PrintSection) => sections.includes(section);
   const steps = Array.isArray(details.solutionSteps) ? details.solutionSteps.slice(0, 5) : [];

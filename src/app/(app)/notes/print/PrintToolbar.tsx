@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 export type PrintSection = "source" | "analysis" | "steps" | "review" | "reason";
-export type PrintLayout = "standard" | "worksheet" | "answer";
+export type PrintLayout = "worksheet" | "answer";
 
 export const PRINT_SECTIONS: Array<{ key: PrintSection; label: string; description: string }> = [
   { key: "source", label: "문제 전문", description: "원본에서 추출한 시험 문제" },
@@ -15,9 +15,8 @@ export const PRINT_SECTIONS: Array<{ key: PrintSection; label: string; descripti
 ];
 
 const LAYOUTS: Array<{ key: PrintLayout; label: string; description: string }> = [
-  { key: "standard", label: "기본형", description: "보관형 오답노트에 적합합니다." },
-  { key: "worksheet", label: "문제지형", description: "문제만 연속 출력되고, 분석 및 정답은 뒤쪽 해설 페이지로 분리되어 있습니다." },
-  { key: "answer", label: "해설지형", description: "문제 분석 및 단계별 풀이를 위주로 배치하며 문제의 개념과 풀이 복습에 적합합니다." },
+  { key: "worksheet", label: "문제지형", description: "선택한 문제 전문은 앞쪽 시험지에 모으고, 분석·풀이·정답은 새 페이지의 답지로 분리합니다." },
+  { key: "answer", label: "해설지형", description: "선택한 모든 내용을 문제별로 묶어 문제와 해설이 연속해서 나오도록 배치합니다." },
 ];
 
 export default function PrintToolbar({ count, initialSections, initialLayout }: { count: number; initialSections: PrintSection[]; initialLayout: PrintLayout }) {
@@ -54,7 +53,7 @@ export default function PrintToolbar({ count, initialSections, initialLayout }: 
       <div className="mt-5 grid gap-6">
         <div className="w-full">
           <p className="text-sm font-bold">레이아웃</p>
-          <div className="mt-2 grid grid-cols-3 gap-2">
+          <div className="mt-2 grid grid-cols-2 gap-2">
             {LAYOUTS.map((option) => (
               <div key={option.key} className="relative">
                 <button type="button" onClick={() => apply(sections, option.key)} className={`min-h-11 w-full rounded-xl border px-2 pr-7 text-xs font-bold ${layout === option.key ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-200 text-slate-600"}`}>{option.label}</button>
