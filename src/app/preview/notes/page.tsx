@@ -89,7 +89,7 @@ export default async function NotesPreviewPage({
             <div className="-mx-2 mt-3 flex flex-nowrap items-center gap-2 overflow-x-auto px-2 pb-2 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
               <Link
                 href="/preview/notes"
-                className={`rounded-full border px-4 py-2 text-sm font-bold ${
+                className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-bold ${
                   !activeSubject
                     ? "border-slate-900 bg-slate-900 text-white"
                     : "border-slate-200 bg-white text-slate-600"
@@ -101,7 +101,7 @@ export default async function NotesPreviewPage({
                 <Link
                   key={item.id}
                   href={`/preview/notes?subject=${item.id}`}
-                  className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold ${
+                  className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-bold ${
                     activeSubject?.id === item.id
                       ? "border-indigo-600 bg-indigo-600 text-white"
                       : "border-slate-200 bg-white text-slate-600"
@@ -115,10 +115,10 @@ export default async function NotesPreviewPage({
                 </Link>
               ))}
               <span className="hidden h-7 w-px bg-slate-200 sm:block" />
-              <span className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700">
+              <span className="shrink-0 whitespace-nowrap rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700">
                 최신순⌄
               </span>
-              <span className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700">
+              <span className="shrink-0 whitespace-nowrap rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700">
                 필터⌄
               </span>
             </div>

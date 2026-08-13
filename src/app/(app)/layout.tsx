@@ -214,7 +214,7 @@ export default async function AppLayout({
               {isAdmin && (
                 <Link
                   href="/admin"
-                  className="font-semibold text-indigo-600 transition hover:text-indigo-500 dark:text-indigo-400"
+                  className="inline-flex min-h-11 shrink-0 items-center whitespace-nowrap font-semibold text-indigo-600 transition hover:text-indigo-500 dark:text-indigo-400"
                 >
                   운영자 콘솔
                 </Link>

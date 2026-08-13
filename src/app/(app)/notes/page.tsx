@@ -183,7 +183,7 @@ export default async function NotesPage({
           <div className="-mx-2 mt-3 flex flex-nowrap items-center gap-2 overflow-x-auto px-2 pb-2 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
             <Link
               href={notesHref({ query: searchQuery, sort: sortOrder })}
-              className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
+              className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-bold transition ${
                 !subjectFilter
                   ? "border-slate-900 bg-slate-900 text-white"
                   : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
@@ -200,7 +200,7 @@ export default async function NotesPage({
                   query: searchQuery,
                   sort: sortOrder,
                 })}
-                className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold transition ${
+                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-bold transition ${
                   subjectFilter === subject.id
                     ? "border-indigo-600 bg-indigo-600 text-white"
                     : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200"
@@ -216,7 +216,7 @@ export default async function NotesPage({
             {!subjects.length && (
               <Link
                 href="/notes/new"
-                className="rounded-full border border-dashed border-indigo-300 px-4 py-2 text-sm font-bold text-indigo-600"
+                className="shrink-0 whitespace-nowrap rounded-full border border-dashed border-indigo-300 px-4 py-2 text-sm font-bold text-indigo-600"
               >
                 + 첫 과목 추가
               </Link>
