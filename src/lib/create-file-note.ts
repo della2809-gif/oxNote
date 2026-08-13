@@ -271,7 +271,7 @@ export async function createFileNote({
   const fileBase64 = Buffer.from(arrayBuffer).toString("base64");
   const solutionBase64 = solutionArrayBuffer ? Buffer.from(solutionArrayBuffer).toString("base64") : undefined;
   const cacheKey = analysisCacheKey([
-    "file_analysis_v3_verbatim_question",
+    "file_analysis_v5_gpt_reasoning_standard",
     user.id,
     uploadedFile.type,
     fileBase64,
