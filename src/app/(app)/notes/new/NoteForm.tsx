@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { HandwritingArtifact, Subject } from "@/lib/types";
+import MathText from "@/components/MathText";
 import { createNote, createNoteFromFile } from "../actions";
 import { createSubjectInline } from "../../subjects/actions";
 import ImageCropper, { compressImageFile } from "./ImageCropper";
@@ -371,13 +372,13 @@ export default function NoteForm({
               {analysisPreview.question && (
                 <div className="rounded-2xl bg-white p-4 sm:col-span-2">
                   <p className="text-xs font-bold text-indigo-500">인식한 문제</p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{analysisPreview.question}</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-700"><MathText>{analysisPreview.question}</MathText></p>
                 </div>
               )}
               {analysisPreview.correctAnswer && (
                 <div className="rounded-2xl bg-white p-4">
                   <p className="text-xs font-bold text-emerald-600">정답</p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{analysisPreview.correctAnswer}</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-700"><MathText>{analysisPreview.correctAnswer}</MathText></p>
                 </div>
               )}
               {(analysisPreview.answerSummary || analysisPreview.analysis) && (

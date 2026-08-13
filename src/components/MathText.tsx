@@ -1,16 +1,31 @@
 import type { ReactNode } from "react";
 
-const fractionPattern = /(?:(\d+)\s*과\s*)?([−-]?(?:\d+(?:\.\d+)?|\([^()\n/]+\)))\s*\/\s*(\d+(?:\.\d+)?)/g;
+const fractionPattern = /\\(?:d?frac)\s*\{([^{}\n]+)\}\s*\{([^{}\n]+)\}|(?:(\d+)\s*과\s*)?([−-]?(?:(?:\d+)?√(?:\d+|[A-Za-z])|\d+(?:\.\d+)?|\([^()\n/]+\)))\s*\/\s*([−-]?(?:\d+(?:\.\d+)?|[A-Za-z]+|\([^()\n/]+\)))/g;
+
+function normalizeMathText(value: string) {
+  return value
+    .replace(/\\sqrt\s*\{([^{}]+)\}/g, "√$1")
+    .replace(/\\[()[\]]/g, "")
+    .replace(/\$\$/g, "");
+}
 
 export default function MathText({ children }: { children: string }) {
+  const text = normalizeMathText(children);
   const parts: ReactNode[] = [];
   let cursor = 0;
 
-  for (const match of children.matchAll(fractionPattern)) {
+  for (const match of text.matchAll(fractionPattern)) {
     const index = match.index ?? 0;
-    if (index > cursor) parts.push(children.slice(cursor, index));
+    const previousCharacter = text[index - 1] ?? "";
+    const nextCharacter = text[index + match[0].length] ?? "";
+    if (previousCharacter === "/" || nextCharacter === "/") continue;
+    if (index > cursor) parts.push(text.slice(cursor, index));
 
-    const [, whole, numerator, denominator] = match;
+    const latexNumerator = match[1];
+    const latexDenominator = match[2];
+    const whole = match[3];
+    const numerator = latexNumerator ?? match[4];
+    const denominator = latexDenominator ?? match[5];
     const displayNumerator =
       numerator.startsWith("(") && numerator.endsWith(")")
         ? numerator.slice(1, -1)
@@ -38,6 +53,6 @@ export default function MathText({ children }: { children: string }) {
     cursor = index + match[0].length;
   }
 
-  if (cursor < children.length) parts.push(children.slice(cursor));
-  return parts.length ? parts : children;
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return parts.length ? parts : text;
 }
