@@ -12,10 +12,10 @@ export const metadata: Metadata = {
   formatDetection: { telephone: false },
   icons: {
     icon: [
-      { url: "/icons/icon-192.png?v=2", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png?v=2", sizes: "512x512", type: "image/png" },
+      { url: "/icons/icon-192.png?v=3", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png?v=3", sizes: "512x512", type: "image/png" },
     ],
-    apple: "/icons/apple-touch-icon.png?v=2",
+    apple: "/icons/apple-touch-icon.png?v=3",
   },
 };
 
@@ -23,7 +23,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  themeColor: "#211d58",
+  themeColor: "#1E1B4B",
 };
 
 export default function RootLayout({
