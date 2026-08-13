@@ -1,4 +1,4 @@
-const CACHE_NAME = "xonote-static-v1";
+const CACHE_NAME = "xonote-static-v2";
 const OFFLINE_URL = "/offline";
 const PRECACHE_URLS = [OFFLINE_URL, "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png"];
 
