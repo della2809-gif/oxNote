@@ -7,6 +7,9 @@ type ReviewLogWithSubject = {
   notes: { subject_id: string | null } | null;
 };
 
+// 보류 기능: 성적 비교 기능을 다시 공개할 때 true로 전환합니다.
+const SHOW_PERFORMANCE_PROMO = false;
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const {
@@ -115,7 +118,7 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <section className="relative overflow-hidden rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-6 shadow-sm sm:p-8">
+      {SHOW_PERFORMANCE_PROMO && <section className="relative overflow-hidden rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-6 shadow-sm sm:p-8">
         <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-indigo-200/40 blur-3xl" />
         <div className="relative flex flex-wrap items-start justify-between gap-6">
           <div className="max-w-2xl">
@@ -137,7 +140,7 @@ export default async function DashboardPage() {
             <button type="button" disabled className="shrink-0 cursor-not-allowed rounded-xl bg-slate-200 px-5 py-3 text-sm font-bold text-slate-500" title="유료회원 전용 기능으로 준비 중입니다.">유료회원 전용 · 준비 중</button>
           )}
         </div>
-      </section>
+      </section>}
     </div>
   );
 }
