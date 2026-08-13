@@ -64,6 +64,7 @@ const TUTOR_INSTRUCTIONS = `너는 모든 시험 분야를 다루는 한국어 A
 
 판독 원칙
 - 사진의 빨간 채점선, 손글씨, 책 뒤쪽 비침은 인쇄된 문제 조건과 구분한다.
+- problem_region은 인쇄된 현재 문제의 번호·본문·보기·도형을 모두 포함하고, 주변의 다른 문제·손글씨·채점 표시·불필요한 여백은 제외한다. 좌표는 이미지 전체를 가로·세로 각각 1000으로 정규화해 반환한다.
 - 대분수의 정수부·분자·분모, 소수점, 음수 부호, 지수, 괄호, 도형의 밑변·높이·가로·세로와 단위를 빠짐없이 읽는다.
 - 불명확한 값은 문맥으로 임의 확정하지 말고 해당 값을 recognized_conditions에 '판독 불확실'이라고 표시한다.
 - 과목은 발문의 언어가 아니라 실제 평가 지식으로 판별한다. 영어 지문 독해·어휘·어법 문제는 한국어 발문이나 필기가 있어도 영어다.
@@ -220,6 +221,19 @@ const FILE_ANALYSIS_SCHEMA = {
           items: { type: "string" },
           description: "원본에서 판독한 수치, 단위, 도형 조건과 질문을 계산 전 체크리스트 형태로 정리",
         },
+        problem_region: {
+          type: "object",
+          properties: {
+            x: { type: "number", description: "이미지 전체 너비를 1000으로 보았을 때 문제 영역의 왼쪽 좌표" },
+            y: { type: "number", description: "이미지 전체 높이를 1000으로 보았을 때 문제 영역의 위쪽 좌표" },
+            width: { type: "number", description: "이미지 전체 너비를 1000으로 보았을 때 문제 영역 너비" },
+            height: { type: "number", description: "이미지 전체 높이를 1000으로 보았을 때 문제 영역 높이" },
+            confidence: { type: "string", enum: ["high", "medium", "low"] },
+          },
+          required: ["x", "y", "width", "height", "confidence"],
+          additionalProperties: false,
+          description: "인쇄된 한 문제 전체를 포함하되 주변 문제·여백·필기를 제외한 경계 상자",
+        },
         learning_elements: {
           type: "array",
           items: {
@@ -282,6 +296,7 @@ const FILE_ANALYSIS_SCHEMA = {
         "question_type",
         "core_concepts",
         "recognized_conditions",
+        "problem_region",
         "learning_elements",
         "grade_rationale",
         "difficulty_rationale",
@@ -516,6 +531,18 @@ export async function analyzeFromFile({
       }),
     ),
   });
+  const region = details.problem_region;
+  const problemRegion = region && [region.x, region.y, region.width, region.height].every(Number.isFinite)
+    ? {
+        x: Number(region.x),
+        y: Number(region.y),
+        width: Number(region.width),
+        height: Number(region.height),
+        confidence: region.confidence === "high" || region.confidence === "medium"
+          ? region.confidence
+          : "low" as const,
+      }
+    : undefined;
   const correctedAnswer = applyMathVerificationCorrections(
     parsed.correct_answer ?? "",
     verifiedDetails.mathVerification,
@@ -527,7 +554,7 @@ export async function analyzeFromFile({
     analysis: parsed.analysis ?? "",
     mistakeType: parsed.mistake_type ?? "",
     tags: parsed.tags ?? [],
-    details: verifiedDetails,
+    details: { ...verifiedDetails, problemRegion },
     succeeded: true,
     usage: streamed.usage,
   };

@@ -64,6 +64,13 @@ button {
   box-shadow: 0 12px 35px rgb(15 23 42 / 10%);
 }
 
+.print-source-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
 @media screen and (max-width: 850px) {
   .print-sheet {
     min-height: auto;
@@ -119,5 +126,14 @@ button {
 
   .print-sheet footer {
     margin-top: 8mm;
+  }
+
+  .print-source-image {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    object-fit: contain !important;
   }
 }

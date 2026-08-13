@@ -5,6 +5,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { analyzeFromFile, type FileAnalysisResult } from "./analyze";
 import { analysisCacheKey, readAnalysisCache, writeAnalysisCache } from "./ai-analysis-cache";
 import { createAiPerformanceTracker } from "./ai-performance";
+import { cleanProblemImage } from "./problem-image-cleanup";
 import {
   finalizeAiUsage,
   getMonthlyUploadedBytes,
@@ -265,12 +266,12 @@ export async function createFileNote({
   if (uploadedFile.size > planFileLimit || (uploadedSolution?.size ?? 0) > planFileLimit) {
     throw new FileNoteCreationError(`파일은 ${Math.floor(planFileLimit / 1024 / 1024)}MB 이하로 올려주세요.`, 413);
   }
-  const requestedUploadBytes = uploadedFile.size + (uploadedSolution?.size ?? 0);
+  let requestedUploadBytes = uploadedFile.size + (uploadedSolution?.size ?? 0);
 
   const fileBase64 = Buffer.from(arrayBuffer).toString("base64");
   const solutionBase64 = solutionArrayBuffer ? Buffer.from(solutionArrayBuffer).toString("base64") : undefined;
   const cacheKey = analysisCacheKey([
-    "file_analysis",
+    "file_analysis_v2_cleanup",
     user.id,
     uploadedFile.type,
     fileBase64,
@@ -400,7 +401,20 @@ export async function createFileNote({
 
   if (recognizedQuestionHint) analyzed = { ...analyzed, question: recognizedQuestionHint };
 
-  const [problemUpload, solutionUpload] = await uploadPromise;
+  const cleanupStartedAt = performance.now();
+  const cleanupPromise = cleanProblemImage({
+    input: Buffer.from(arrayBuffer),
+    mimeType: uploadedFile.type,
+    problemRegion: analyzed.details.problemRegion,
+  }).catch((error) => {
+    console.error("Problem image cleanup failed:", error);
+    return null;
+  });
+  const [problemUpload, solutionUpload, cleanedImage] = await Promise.all([
+    uploadPromise.then((result) => result[0]),
+    uploadPromise.then((result) => result[1]),
+    cleanupPromise,
+  ]);
   perf.measure("storage_upload", uploadStartedAt, {
     problemSucceeded: !problemUpload.error,
     solutionSucceeded: !solutionUpload.error,
@@ -409,6 +423,21 @@ export async function createFileNote({
     problemUpload.error ? null : problemPath,
     solutionUpload.error ? null : solutionPath,
   ].filter((path): path is string => Boolean(path));
+  let cleanedPath: string | null = null;
+  if (cleanedImage && !problemUpload.error) {
+    const candidatePath = `${user.id}/${crypto.randomUUID()}-cleaned-problem.webp`;
+    const { error: cleanedUploadError } = await supabase.storage
+      .from("note-files")
+      .upload(candidatePath, cleanedImage.buffer, { contentType: "image/webp" });
+    if (!cleanedUploadError) {
+      cleanedPath = candidatePath;
+      uploadedPaths.push(candidatePath);
+      requestedUploadBytes += cleanedImage.buffer.byteLength;
+    } else {
+      console.error("Cleaned problem image upload failed:", cleanedUploadError);
+    }
+  }
+  perf.measure("image_cleanup", cleanupStartedAt, { cleaned: Boolean(cleanedPath) });
 
   if (reservation) {
     after(() => finalizeAiUsage({
@@ -472,9 +501,20 @@ export async function createFileNote({
       my_answer: myAnswerHint || analyzed.myAnswer || null,
       correct_answer: correctAnswerHint || analyzed.correctAnswer,
       ai_analysis: analyzed.analysis,
-      ai_details: handwritingArtifact
-        ? { ...analyzed.details, inputArtifact: handwritingArtifact }
-        : analyzed.details,
+      ai_details: {
+        ...analyzed.details,
+        ...(handwritingArtifact ? { inputArtifact: handwritingArtifact } : {}),
+        ...(cleanedPath
+          ? {
+              imageCleanup: {
+                version: 1,
+                cleanedPath,
+                mode: "crop_and_deink",
+                problemRegion: analyzed.details.problemRegion,
+              },
+            }
+          : {}),
+      },
       mistake_type: analyzed.mistakeType,
       tags: [...analyzed.tags, learningStatus === "correct_review" ? "학습상태:맞았지만 복습" : "학습상태:틀린 문제"],
       box_level: 1,

@@ -4,6 +4,7 @@ import type { Note, NoteAiDetails, Subject } from "@/lib/types";
 import { submitReview } from "../notes/actions";
 import { createReviewGoal, deleteReviewGoal } from "./actions";
 import OriginalSourceToggle from "./OriginalSourceToggle";
+import MathText from "@/components/MathText";
 
 type ReviewGoal = {
   id: string;
@@ -172,7 +173,10 @@ export default async function ReviewPage({
                 {note.source && <p className="text-xs text-slate-500">{note.source}</p>}
               </div>
 
-              <p className="whitespace-pre-wrap break-words text-base font-medium leading-7">{note.question}</p>
+              <section aria-label="원본에서 추출한 문제 전문">
+                <p className="mb-2 text-xs font-bold text-slate-400">원본에서 추출한 문제 전문</p>
+                <p className="whitespace-pre-wrap break-words text-base font-medium leading-7"><MathText>{note.question}</MathText></p>
+              </section>
               {note.source_file_url && <OriginalSourceToggle noteId={note.id} />}
 
               <details className="mt-3 rounded-lg bg-slate-50 p-3 text-sm">

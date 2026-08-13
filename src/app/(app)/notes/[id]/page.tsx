@@ -42,6 +42,8 @@ function asDetails(value: unknown): NoteAiDetails | null {
       )
         ? details.mathVerification
         : undefined,
+    problemRegion: details.problemRegion,
+    imageCleanup: details.imageCleanup,
   };
 }
 
@@ -119,8 +121,10 @@ export default async function NoteDetailPage({
     subject = data;
   }
 
-  const [problemFileUrl, solutionFileUrl] = await Promise.all([
-    signedFileUrl(supabase, typedNote.source_file_url),
+  const problemDisplayPath = details?.imageCleanup?.cleanedPath ?? typedNote.source_file_url;
+  const [problemFileUrl, originalProblemFileUrl, solutionFileUrl] = await Promise.all([
+    signedFileUrl(supabase, problemDisplayPath),
+    details?.imageCleanup?.cleanedPath ? signedFileUrl(supabase, typedNote.source_file_url) : Promise.resolve(null),
     signedFileUrl(supabase, typedNote.student_solution_file_url),
   ]);
   const hasStudentSolution = Boolean(solutionFileUrl || typedNote.my_answer);
@@ -243,11 +247,16 @@ export default async function NoteDetailPage({
         <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-5">
           <div className="mb-4 flex items-center justify-between">
             <span className="max-w-[75%] truncate rounded-lg bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-600">
-              문제 원본 {typedNote.source_file_url ? `· ${typedNote.source_file_url.split("/").pop()?.replace(/^[^-]+-/, "")}` : ""}
+              문제 원본 {details?.imageCleanup?.cleanedPath ? "· 필기와 주변 영역을 정리한 이미지" : typedNote.source_file_url ? `· ${typedNote.source_file_url.split("/").pop()?.replace(/^[^-]+-/, "")}` : ""}
             </span>
+            {originalProblemFileUrl && (
+              <a href={originalProblemFileUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-slate-500 underline underline-offset-2">
+                보정 전 원본 보기
+              </a>
+            )}
           </div>
           {problemFileUrl ? (
-            <FilePreview url={problemFileUrl} path={typedNote.source_file_url} alt="업로드한 문제 원본" />
+            <FilePreview url={problemFileUrl} path={problemDisplayPath} alt="정리된 문제 원본" />
           ) : (
             <div className="rounded-2xl bg-slate-50 p-6">
               <p className="whitespace-pre-wrap text-sm leading-7 text-slate-700"><MathText>{typedNote.question}</MathText></p>

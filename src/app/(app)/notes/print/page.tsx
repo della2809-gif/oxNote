@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { Note, NoteAiDetails, Subject } from "@/lib/types";
+import MathText from "@/components/MathText";
 import PrintToolbar, { type PrintLayout, type PrintSection } from "./PrintToolbar";
 
 const VALID_SECTIONS = new Set<PrintSection>(["source", "analysis", "steps", "review", "reason"]);
@@ -53,7 +54,15 @@ export default async function PrintNotesPage({ searchParams }: { searchParams: P
   const noteMap = new Map(notes.map((note) => [note.id, note]));
   const orderedNotes = ids.map((id) => noteMap.get(id)).filter((note): note is Note => Boolean(note));
   const subjectMap = new Map(((subjectsData as Subject[] | null) ?? []).map((subject) => [subject.id, subject]));
-  const printable: PrintableNote[] = await Promise.all(orderedNotes.map(async (note) => ({ note, details: asDetails(note.ai_details), subject: note.subject_id ? subjectMap.get(note.subject_id) ?? null : null, imageUrl: await signedImageUrl(supabase, note.source_file_url) })));
+  const printable: PrintableNote[] = await Promise.all(orderedNotes.map(async (note) => {
+    const details = asDetails(note.ai_details);
+    return {
+      note,
+      details,
+      subject: note.subject_id ? subjectMap.get(note.subject_id) ?? null : null,
+      imageUrl: await signedImageUrl(supabase, details.imageCleanup?.cleanedPath ?? note.source_file_url),
+    };
+  }));
 
   return (
     <div className="print-document mx-auto max-w-[210mm]">
@@ -82,12 +91,18 @@ function NoteSheet({ item, index, total, sections, variant }: { item: PrintableN
         <span className="shrink-0 text-[9px] text-slate-400">{index + 1} / {total}</span>
       </header>
 
-      <div className={`mt-3 grid gap-3 ${has("source") && has("analysis") && variant === "standard" ? "grid-cols-[0.9fr_1.1fr]" : "grid-cols-1"}`}>
-        {has("source") && <PrintBox title="문제 원본" color="text-indigo-600">{imageUrl ? (
-          // Signed private-storage URLs are displayed at their natural print dimensions.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={imageUrl} alt="문제 원본" className={`${variant === "problem" ? "h-[205mm]" : "h-[62mm]"} mt-2 w-full rounded-lg object-contain`} />
-        ) : <p className="mt-2 whitespace-pre-wrap text-[10px] font-medium leading-[1.65]">{compactText(note.question, variant === "problem" ? 2000 : 750)}</p>}</PrintBox>}
+      <div className="mt-3 grid grid-cols-1 gap-3">
+        {has("source") && <PrintBox title="문제 원본" color="text-indigo-600">
+          {imageUrl && (
+            // Signed private-storage URLs are displayed at their natural print dimensions.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={imageUrl} alt="문제 원본" className="print-source-image mt-2 block h-auto w-full rounded-lg" />
+          )}
+          <div className={`${imageUrl ? "mt-3 border-t border-slate-100 pt-3" : "mt-2"}`}>
+            <p className="text-[8px] font-bold text-slate-400">원본에서 추출한 문제 전문</p>
+            <p className="mt-1.5 whitespace-pre-wrap break-words text-[10px] font-medium leading-[1.65]"><MathText>{note.question}</MathText></p>
+          </div>
+        </PrintBox>}
         {has("analysis") && <PrintBox title="문제 분석" color="text-emerald-600"><p className="mt-2 whitespace-pre-wrap text-[9px] font-semibold leading-[1.55]">{compactText(note.ai_analysis || note.question, 650)}</p><dl className="mt-3 rounded-lg bg-slate-50 p-3 text-[8px]"><dt className="font-bold text-slate-400">핵심 개념</dt><dd className="mt-1 font-semibold">{details.coreConcepts?.slice(0, 5).join(" · ") || "-"}</dd><dt className="mt-2 font-bold text-slate-400">정답</dt><dd className="mt-1 font-semibold text-emerald-600">{compactText(details.answerSummary || note.correct_answer, 180)}</dd></dl></PrintBox>}
       </div>
 

@@ -91,6 +91,21 @@ export type HandwritingArtifact = {
   recognizedLatex?: string;
 };
 
+export type ProblemRegion = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  confidence: "high" | "medium" | "low";
+};
+
+export type ImageCleanup = {
+  version: 1;
+  cleanedPath: string;
+  mode: "crop_and_deink";
+  problemRegion?: ProblemRegion;
+};
+
 export type NoteAiDetails = {
   title: string;
   subject: string;
@@ -108,6 +123,8 @@ export type NoteAiDetails = {
   confusionPoints: NoteConfusionPoint[];
   mathVerification?: MathVerification;
   inputArtifact?: HandwritingArtifact;
+  problemRegion?: ProblemRegion;
+  imageCleanup?: ImageCleanup;
 };
 
 export type Plan = {

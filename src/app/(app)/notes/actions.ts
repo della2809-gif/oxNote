@@ -215,7 +215,7 @@ export async function deleteNote(formData: FormData) {
 
   const { data: note } = await supabase
     .from("notes")
-    .select("source_file_url, student_solution_file_url")
+    .select("source_file_url, student_solution_file_url, ai_details")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -223,6 +223,7 @@ export async function deleteNote(formData: FormData) {
   const filesToRemove = [
     note?.source_file_url,
     note?.student_solution_file_url,
+    (note?.ai_details as { imageCleanup?: { cleanedPath?: string } } | null)?.imageCleanup?.cleanedPath,
   ].filter((path): path is string => Boolean(path));
   if (filesToRemove.length > 0) {
     await supabase.storage.from("note-files").remove(filesToRemove);
@@ -314,7 +315,7 @@ export async function deleteSelectedNotes(formData: FormData) {
 
   const { data: notes, error: selectError } = await supabase
     .from("notes")
-    .select("id, source_file_url, student_solution_file_url")
+    .select("id, source_file_url, student_solution_file_url, ai_details")
     .eq("user_id", user.id)
     .in("id", ids);
   if (selectError || notes?.length !== ids.length) {
@@ -334,7 +335,11 @@ export async function deleteSelectedNotes(formData: FormData) {
   const filesToRemove = Array.from(
     new Set(
       (notes ?? [])
-        .flatMap((note) => [note.source_file_url, note.student_solution_file_url])
+        .flatMap((note) => [
+          note.source_file_url,
+          note.student_solution_file_url,
+          (note.ai_details as { imageCleanup?: { cleanedPath?: string } } | null)?.imageCleanup?.cleanedPath,
+        ])
         .filter((path): path is string => Boolean(path)),
     ),
   );
