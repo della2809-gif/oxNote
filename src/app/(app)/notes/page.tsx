@@ -180,7 +180,7 @@ export default async function NotesPage({
             <Link href="/subjects" className="text-xs font-bold text-indigo-600 hover:text-indigo-700">과목 관리 →</Link>
           </div>
 
-          <div className="-mx-2 mt-3 flex flex-nowrap items-center gap-2 overflow-x-auto px-2 pb-2 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <Link
               href={notesHref({ query: searchQuery, sort: sortOrder })}
               className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-bold transition ${
@@ -230,8 +230,8 @@ export default async function NotesPage({
               oldestHref={notesHref({ subject: subjectFilter, classification, value: valueFilter, query: searchQuery, sort: "oldest" })}
             />
 
-            <details className="relative">
-              <summary className={`cursor-pointer list-none rounded-full border px-4 py-2 text-sm font-bold transition [&::-webkit-details-marker]:hidden ${searchQuery ? "border-indigo-600 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"}`}>
+            <details className="relative shrink-0">
+              <summary className={`cursor-pointer list-none whitespace-nowrap rounded-full border px-4 py-2 text-sm font-bold transition [&::-webkit-details-marker]:hidden ${searchQuery ? "border-indigo-600 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"}`}>
                 필터 ▾
               </summary>
               <form action="/notes" method="get" className="absolute right-0 z-20 mt-2 w-[min(88vw,28rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">

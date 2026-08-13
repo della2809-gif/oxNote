@@ -21,8 +21,8 @@ export default function SortMenu({
   }
 
   return (
-    <details ref={detailsRef} className="relative">
-      <summary className="cursor-pointer list-none rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:border-slate-300 [&::-webkit-details-marker]:hidden">
+    <details ref={detailsRef} className="relative shrink-0">
+      <summary className="cursor-pointer list-none whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:border-slate-300 [&::-webkit-details-marker]:hidden">
         {sortOrder === "newest" ? "최신순" : "과거순"}⌄
       </summary>
       <div className="absolute right-0 z-20 mt-2 w-32 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">

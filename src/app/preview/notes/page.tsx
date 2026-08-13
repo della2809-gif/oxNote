@@ -86,7 +86,7 @@ export default async function NotesPreviewPage({
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">과목별 보기</p>
               <span className="text-xs font-bold text-indigo-600">과목 관리 →</span>
             </div>
-            <div className="-mx-2 mt-3 flex flex-nowrap items-center gap-2 overflow-x-auto px-2 pb-2 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <Link
                 href="/preview/notes"
                 className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-bold ${
