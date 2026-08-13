@@ -104,6 +104,28 @@ button {
   line-height: 1.75;
 }
 
+.print-problem-row {
+  display: grid;
+  grid-template-columns: 1.8rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.5rem;
+  text-align: left;
+}
+
+.print-problem-row .print-question-transcript {
+  min-width: 0;
+  margin-top: 0;
+  text-align: left;
+}
+
+.print-problem-number {
+  padding-top: 0.05rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1.75;
+  text-align: left;
+}
+
 .print-question-table {
   width: 100%;
   margin: 0.6rem 0;
@@ -222,6 +244,11 @@ button {
   .print-question-transcript {
     font-size: 10pt;
     line-height: 1.75;
+  }
+
+  .print-problem-row {
+    grid-template-columns: 6mm minmax(0, 1fr);
+    gap: 2mm;
   }
 
   .print-sheet + .print-sheet {

@@ -86,7 +86,12 @@ function NoteSheet({ item, index, total, sections, variant }: { item: PrintableN
 
       <div className="mt-3 grid grid-cols-1 gap-3">
         {has("source") && <PrintBox title={variant === "problem" ? "" : "문제 전문"} color="text-indigo-600" className="print-question-box">
-          <QuestionTranscript value={note.question} />
+          {variant === "problem" ? (
+            <div className="print-problem-row">
+              <strong className="print-problem-number" aria-label={`${index + 1}번 문제`}>{index + 1}</strong>
+              <QuestionTranscript value={note.question} />
+            </div>
+          ) : <QuestionTranscript value={note.question} />}
         </PrintBox>}
         {has("analysis") && <PrintBox title="문제 분석" color="text-emerald-600"><p className="mt-2 whitespace-pre-wrap text-[9px] font-semibold leading-[1.55]">{compactText(note.ai_analysis || note.question, 650)}</p><dl className="mt-3 rounded-lg bg-slate-50 p-3 text-[8px]"><dt className="font-bold text-slate-400">핵심 개념</dt><dd className="mt-1 font-semibold">{details.coreConcepts?.slice(0, 5).join(" · ") || "-"}</dd><dt className="mt-2 font-bold text-slate-400">정답</dt><dd className="mt-1 font-semibold text-emerald-600">{compactText(details.answerSummary || note.correct_answer, 180)}</dd></dl></PrintBox>}
       </div>

@@ -144,7 +144,7 @@ export default function PrintOptionsPreview() {
                     <div className="mt-12 border-t border-dashed border-slate-300 pt-6"><strong className="text-lg">2</strong><p className="mt-3 font-semibold">다음 중 옳지 않은 것을 고르시오.</p><ol className="mt-4 space-y-3"><li>① 0의 제곱근은 0이다.</li><li>② 제곱근 6은 ±√6이다.</li><li>③ √5는 제곱근 5라고 읽는다.</li></ol></div>
                   </div>
                   <div className="p-6 text-[13px] leading-7 text-slate-900">
-                    <strong className="text-lg">3</strong>
+                    <strong className="text-lg">2</strong>
                     <p className="mt-3 font-semibold">인성이가 표를 만들어 두 수를 비교한 방법을 써 보세요.</p>
                     <p className="mt-4 rounded-lg border border-slate-300 p-3">[말풍선: 인성] 올해 나는 13살, 형은 17살이에요. 나는 형보다 4살이 적어요.</p>
                     <table className="mt-5 w-full border-collapse text-center text-xs"><thead><tr><th className="border border-slate-400 p-2">구분</th><th className="border border-slate-400 p-2">올해</th><th className="border border-slate-400 p-2">1년 후</th><th className="border border-slate-400 p-2">2년 후</th></tr></thead><tbody><tr><th className="border border-slate-400 p-2">내 나이</th><td className="border border-slate-400 p-2">13</td><td className="border border-slate-400 p-2">14</td><td className="border border-slate-400 p-2">15</td></tr><tr><th className="border border-slate-400 p-2">형 나이</th><td className="border border-slate-400 p-2">17</td><td className="border border-slate-400 p-2">18</td><td className="border border-slate-400 p-2">19</td></tr></tbody></table>
