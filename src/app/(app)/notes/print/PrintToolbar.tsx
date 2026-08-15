@@ -8,7 +8,7 @@ export type PrintLayout = "worksheet" | "answer";
 
 export const PRINT_SECTIONS: Array<{ key: PrintSection; label: string; description: string }> = [
   { key: "source", label: "문제 전문", description: "원본에서 추출한 시험 문제" },
-  { key: "analysis", label: "문제 분석", description: "핵심 개념과 정답" },
+  { key: "analysis", label: "핵심 개념·정답", description: "문제 분석 문단 없이 핵심 개념과 정답만" },
   { key: "steps", label: "단계별 풀이", description: "순서대로 정리한 풀이" },
   { key: "review", label: "다시 확인할 지점", description: "헷갈리기 쉬운 부분" },
   { key: "reason", label: "내가 틀린 이유", description: "직접 작성한 오답 원인" },

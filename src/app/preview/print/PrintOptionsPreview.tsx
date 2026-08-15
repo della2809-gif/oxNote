@@ -13,7 +13,7 @@ const LAYOUT_OPTIONS: Array<{ key: LayoutKey; label: string; description: string
 
 const SECTION_OPTIONS: Array<{ key: SectionKey; label: string; description: string }> = [
   { key: "source", label: "문제 전문", description: "원본에서 추출한 시험 문제" },
-  { key: "analysis", label: "문제 분석", description: "핵심 개념과 정답" },
+  { key: "analysis", label: "핵심 개념·정답", description: "문제 분석 문단 없이 핵심 개념과 정답만" },
   { key: "steps", label: "단계별 풀이", description: "순서대로 정리한 풀이" },
   { key: "review", label: "다시 확인할 지점", description: "헷갈리기 쉬운 부분" },
   { key: "reason", label: "내가 틀린 이유", description: "직접 작성한 오답 원인" },
@@ -153,8 +153,7 @@ export default function PrintOptionsPreview() {
               )}
 
               {layout === "answer" && selected.has("analysis") && (
-                <PreviewBox title="문제 분석" color="text-emerald-600">
-                  <p className="mt-3 text-[12px] font-semibold leading-6">조동사와 일반동사의 형태, 당위적 가정법, 관용 표현을 함께 구분하는 문제입니다.</p>
+                <PreviewBox title="핵심 개념과 정답" color="text-emerald-600">
                   <dl className="mt-3 space-y-2 rounded-xl bg-slate-50 p-4 text-[11px]">
                     <div><dt className="font-bold text-slate-400">핵심 개념</dt><dd className="mt-1">lest 구문 · 조동사 need · necessary that · may well</dd></div>
                     <div><dt className="font-bold text-slate-400">정답</dt><dd className="mt-1 font-bold text-emerald-600">④ You may well be proud of your wife.</dd></div>
@@ -200,7 +199,7 @@ export default function PrintOptionsPreview() {
           {layout === "worksheet" && sections.some((section) => section !== "source") && (
             <article className="mx-auto mt-6 min-h-[297mm] max-w-[210mm] bg-white p-[10mm] shadow-xl print:mt-0 print:min-h-0 print:max-w-none print:break-before-page print:p-0 print:shadow-none">
               <header className="border-b border-slate-300 pb-4"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-600">XONOTE · 정답 및 해설</p><h2 className="mt-2 text-xl font-bold">앞쪽 문제지 답지</h2></header>
-              {selected.has("analysis") && <PreviewBox title="1. 문제 분석 및 정답" color="text-emerald-600"><p className="mt-3 text-sm leading-7">핵심 개념을 확인하고 정답을 제시합니다. <strong className="text-emerald-600">정답 ④</strong></p></PreviewBox>}
+              {selected.has("analysis") && <PreviewBox title="1. 핵심 개념과 정답" color="text-emerald-600"><dl className="mt-3 space-y-2 rounded-xl bg-slate-50 p-4 text-sm"><div><dt className="font-bold text-slate-400">핵심 개념</dt><dd className="mt-1">lest 구문 · 조동사 need · necessary that · may well</dd></div><div><dt className="font-bold text-slate-400">정답</dt><dd className="mt-1 font-bold text-emerald-600">④ You may well be proud of your wife.</dd></div></dl></PreviewBox>}
               {selected.has("steps") && <section className="mt-4 rounded-2xl border border-slate-200 p-5"><h3 className="text-xs font-bold text-indigo-600">1. 단계별 풀이</h3><div className="mt-3 grid gap-3 sm:grid-cols-3">{STEPS.map(([title, body], index) => <div key={title} className="border-t border-slate-100 pt-3 text-[11px] leading-5"><strong>{index + 1}. {title}</strong><p className="mt-2 text-slate-600">{body}</p></div>)}</div></section>}
               {selected.has("review") && <PreviewBox title="1. 다시 확인할 지점" color="text-amber-600"><p className="mt-3 text-sm leading-7">헷갈리기 쉬운 조건과 다음 복습 지점을 확인합니다.</p></PreviewBox>}
               {selected.has("reason") && <PreviewBox title="1. 내가 틀린 이유" color="text-rose-600"><p className="mt-3 text-sm leading-7">직접 작성한 오답 원인이 표시됩니다.</p></PreviewBox>}
