@@ -127,8 +127,15 @@ class Rational {
   }
 
   pow(exponent: number) {
-    if (!Number.isSafeInteger(exponent) || exponent < 0 || exponent > 12) {
+    if (!Number.isSafeInteger(exponent) || Math.abs(exponent) > 12) {
       throw new Error("지원하지 않는 지수입니다.");
+    }
+    if (exponent < 0) {
+      const positive = BigInt(-exponent);
+      return new Rational(
+        this.denominator ** positive,
+        this.numerator ** positive,
+      );
     }
     return new Rational(
       this.numerator ** BigInt(exponent),
@@ -179,6 +186,7 @@ function normalizeExpression(input: string) {
   let value = input
     .trim()
     .replace(/^`+|`+$/g, "")
+    .replace(/\\[()[\]]/g, "")
     .replace(/\\times|\\cdot/g, "*")
     .replace(/\\div/g, "/")
     .replace(/[−–—]/g, "-")
@@ -187,6 +195,12 @@ function normalizeExpression(input: string) {
     .replace(/²/g, "^2")
     .replace(/³/g, "^3")
     .replace(/(?<=\d),(?=\d{3}(?:\D|$))/g, "");
+
+  for (let index = 0; index < 4; index += 1) {
+    const replaced = value.replace(/\\sqrt\s*\{([^{}]+)\}/g, "(($1)^(1/2))");
+    if (replaced === value) break;
+    value = replaced;
+  }
 
   for (let index = 0; index < 4; index += 1) {
     const replaced = value.replace(
@@ -213,6 +227,8 @@ function normalizeExpression(input: string) {
     value = value.replaceAll(symbol, `(${numerator}/${denominator})`);
   }
 
+  value = value.replaceAll("{", "(").replaceAll("}", ")");
+
   value = value.replace(
     /(-?)(\d+)\s+(\d+)\s*\/\s*(\d+)/g,
     (_match, sign: string, whole: string, numerator: string, denominator: string) =>
@@ -226,6 +242,66 @@ function normalizeExpression(input: string) {
     .replace(/(\d|\))\s*(?=\()/g, "$1*")
     .replace(/\)\s*(?=\d)/g, ")*");
   return value;
+}
+
+function evaluateApproximateExpression(input: string) {
+  const tokens = tokenize(normalizeExpression(input));
+  let cursor = 0;
+
+  function parseExpression(): number {
+    let result = parseTerm();
+    while (tokens[cursor] === "+" || tokens[cursor] === "-") {
+      const operator = tokens[cursor++];
+      const right = parseTerm();
+      result = operator === "+" ? result + right : result - right;
+    }
+    return result;
+  }
+
+  function parseTerm(): number {
+    let result = parsePower();
+    while (tokens[cursor] === "*" || tokens[cursor] === "/") {
+      const operator = tokens[cursor++];
+      const right = parsePower();
+      result = operator === "*" ? result * right : result / right;
+    }
+    return result;
+  }
+
+  function parsePower(): number {
+    const base = parseUnary();
+    if (tokens[cursor] !== "^") return base;
+    cursor += 1;
+    return base ** parseUnary();
+  }
+
+  function parseUnary(): number {
+    if (tokens[cursor] === "+") {
+      cursor += 1;
+      return parseUnary();
+    }
+    if (tokens[cursor] === "-") {
+      cursor += 1;
+      return -parseUnary();
+    }
+    return parsePrimary();
+  }
+
+  function parsePrimary(): number {
+    const token = tokens[cursor++];
+    if (!token) throw new Error("계산식이 비어 있습니다.");
+    if (token === "(") {
+      const result = parseExpression();
+      if (tokens[cursor++] !== ")") throw new Error("괄호가 닫히지 않았습니다.");
+      return result;
+    }
+    if (!/^\d|^\./.test(token)) throw new Error("숫자가 필요합니다.");
+    return Number(token);
+  }
+
+  const result = parseExpression();
+  if (cursor !== tokens.length || !Number.isFinite(result)) throw new Error("계산식을 끝까지 해석하지 못했습니다.");
+  return result;
 }
 
 function tokenize(expression: string) {
@@ -375,7 +451,21 @@ function verifyNumericEquality(formula: string): FormulaVerification {
   const segments = splitEquality(formula);
   if (!segments) return result;
   const parsed = segments.map(parseValue);
-  if (parsed.some((value) => !value)) return result;
+  if (parsed.some((value) => !value)) {
+    try {
+      const approximateValues = segments.map(evaluateApproximateExpression);
+      const expected = approximateValues[0];
+      result.checked += 1;
+      for (let index = 1; index < approximateValues.length; index += 1) {
+        const tolerance = 1e-9 * Math.max(1, Math.abs(expected), Math.abs(approximateValues[index]));
+        if (Math.abs(approximateValues[index] - expected) <= tolerance) continue;
+        result.warnings.push(`분수 지수·근호 계산 '${segments[0]}'과 '${segments[index]}'의 값이 일치하지 않습니다.`);
+      }
+    } catch {
+      // 기호식 등 수치 계산으로 확인할 수 없는 식은 기존처럼 건너뛴다.
+    }
+    return result;
+  }
 
   const values = parsed as ParsedValue[];
   const allUnitsCompatible =
@@ -566,4 +656,5 @@ export const mathVerifierForTests = {
   },
   verifyFormula: verifyNumericEquality,
   verifySteps,
+  evaluateApproximate: evaluateApproximateExpression,
 };

@@ -385,7 +385,7 @@ export default function NoteForm({
                 <div className="rounded-2xl bg-white p-4">
                   <p className="text-xs font-bold text-indigo-500">핵심 풀이</p>
                   <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                    {analysisPreview.answerSummary || analysisPreview.analysis}
+                    <MathText>{analysisPreview.answerSummary || analysisPreview.analysis || ""}</MathText>
                   </p>
                 </div>
               )}

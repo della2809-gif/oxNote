@@ -11,6 +11,21 @@ test("대분수와 분수를 정확한 유리수로 계산한다", () => {
   assert.equal(mathVerifierForTests.evaluate("0.1 + 0.2"), "3/10");
 });
 
+test("LaTeX 분수 지수와 음의 지수를 계산하고 등식을 검산한다", () => {
+  const formula = "\\(9^{\\frac{1}{4}} \\times 3^{-\\frac{1}{2}}\\) = 1";
+  const result = mathVerifierForTests.verifyFormula(formula);
+
+  assert.ok(Math.abs(mathVerifierForTests.evaluateApproximate("9^{\\frac{1}{4}} \\times 3^{-\\frac{1}{2}}") - 1) < 1e-9);
+  assert.equal(result.checked, 1);
+  assert.equal(result.warnings.length, 0);
+});
+
+test("틀린 분수 지수 계산 결과를 경고한다", () => {
+  const result = mathVerifierForTests.verifyFormula("\\(9^{\\frac{1}{4}} \\times 3^{-\\frac{1}{2}}\\) = 3");
+  assert.equal(result.checked, 1);
+  assert.equal(result.warnings.length, 1);
+});
+
 test("잘못된 분수 등식의 마지막 결과를 자동 수정한다", () => {
   const result = mathVerifierForTests.verifyFormula(
     "(9/5) * (11/6) = 99/30 = 49/48 cm²",
