@@ -197,17 +197,31 @@ export default async function NoteDetailPage({
 
         <form action={updateNoteExtractedContent} className="mt-6 space-y-5">
           <input type="hidden" name="id" value={typedNote.id} />
-          <label className="block space-y-2 text-sm font-bold text-slate-700">
-            <span>문제 전문</span>
-            <textarea
-              name="question"
-              required
-              maxLength={12000}
-              rows={8}
-              defaultValue={typedNote.question}
-              className="w-full resize-y rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-medium leading-7 text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
-            />
-          </label>
+          <div className="space-y-2 text-sm font-bold text-slate-700">
+            <p>문제 전문</p>
+            <div
+              aria-label="수식이 적용된 문제 전문"
+              className="whitespace-pre-wrap rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-medium leading-8 text-slate-800"
+            >
+              <MathText>{typedNote.question}</MathText>
+            </div>
+            <details className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <summary className="cursor-pointer text-xs font-bold text-indigo-600">
+                인식된 문제 직접 수정하기
+              </summary>
+              <label className="mt-3 block">
+                <span className="sr-only">문제 전문 편집</span>
+                <textarea
+                  name="question"
+                  required
+                  maxLength={12000}
+                  rows={8}
+                  defaultValue={typedNote.question}
+                  className="w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium leading-7 text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+                />
+              </label>
+            </details>
+          </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block space-y-2 text-sm font-bold text-slate-700">
@@ -429,7 +443,7 @@ export default async function NoteDetailPage({
               <div key={`${point.title}-${index}`} className="grid gap-3 sm:grid-cols-[34px_1fr]">
                 <span className="grid h-8 w-8 place-items-center rounded-xl bg-rose-50 text-xs font-bold text-rose-500">{index + 1}</span>
                 <div>
-                  <p className="text-sm font-bold text-slate-800">{point.title}</p>
+                  <p className="text-sm font-bold text-slate-800"><MathText>{point.title}</MathText></p>
                   <p className="mt-1 text-sm leading-6 text-slate-500"><MathText>{point.explanation}</MathText></p>
                   {point.correction && <p className="mt-1 text-sm font-semibold text-indigo-600">다음에는: <MathText>{point.correction}</MathText></p>}
                 </div>

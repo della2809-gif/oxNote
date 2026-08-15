@@ -6,7 +6,7 @@ const plainFractionPattern = /(?:(\d+)\s*과\s*)?([−-]?(?:(?:\d+)?√(?:\d+|[A
 
 function normalizeEscapedLatex(value: string) {
   return value
-    .replace(/\\\\(?=(?:d?frac|sqrt|times|cdot|div|left|right|text|mathrm|operatorname|[()[\]]))/g, "\\")
+    .replace(/\\\\(?=(?:d?frac|sqrt|times|cdot|div|left|right|text|mathrm|operatorname|sum|prod|int|lim|log|ln|sin|cos|tan|theta|alpha|beta|gamma|pi|infty|[()[\]]))/g, "\\")
     .replace(/[−–—]/g, "-");
 }
 

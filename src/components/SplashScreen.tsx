@@ -2,27 +2,37 @@
 
 import { useEffect, useState } from "react";
 
-const MINIMUM_SPLASH_MS = 700;
+const MINIMUM_SPLASH_MS = 2300;
+const SPLASH_EXIT_MS = 300;
 
 export function SplashScreen() {
-  const [visible, setVisible] = useState(true);
+  const [phase, setPhase] = useState<"visible" | "exiting" | "hidden">("visible");
 
   useEffect(() => {
     const startedAt = performance.now();
+    let holdTimer: number | undefined;
+    let exitTimer: number | undefined;
     const hide = () => {
       const remaining = Math.max(0, MINIMUM_SPLASH_MS - (performance.now() - startedAt));
-      window.setTimeout(() => setVisible(false), remaining);
+      holdTimer = window.setTimeout(() => {
+        setPhase("exiting");
+        exitTimer = window.setTimeout(() => setPhase("hidden"), SPLASH_EXIT_MS);
+      }, remaining);
     };
 
     if (document.readyState === "complete") hide();
     else window.addEventListener("load", hide, { once: true });
-    return () => window.removeEventListener("load", hide);
+    return () => {
+      window.removeEventListener("load", hide);
+      if (holdTimer) window.clearTimeout(holdTimer);
+      if (exitTimer) window.clearTimeout(exitTimer);
+    };
   }, []);
 
-  if (!visible) return null;
+  if (phase === "hidden") return null;
 
   return (
-    <div className="xo-splash" role="img" aria-label="xonote, 틀려도 괜찮아. 다시 알면 되니까.">
+    <div className={`xo-splash${phase === "exiting" ? " xo-splash--exiting" : ""}`} role="img" aria-label="xonote, 틀려도 괜찮아. 다시 알면 되니까.">
       <div className="xo-splash-stage">
         <svg className="xo-splash-mark" viewBox="0 0 220 108" aria-hidden="true">
           <g stroke="#0E1533" strokeWidth="20" strokeLinecap="round">

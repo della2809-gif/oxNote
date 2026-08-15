@@ -83,6 +83,11 @@ button {
   font-family: var(--app-font-sans);
 }
 
+.xo-splash--exiting {
+  pointer-events: none;
+  animation: xo-splash-out .3s ease forwards;
+}
+
 .xo-splash-stage {
   display: flex;
   flex-direction: column;
@@ -90,7 +95,7 @@ button {
   text-align: center;
   opacity: 0;
   transform: translateY(-3%) scale(.96);
-  animation: xo-splash-in .7s cubic-bezier(.2, .8, .25, 1) .15s forwards;
+  animation: xo-splash-in .85s cubic-bezier(.2, .8, .25, 1) .18s forwards;
 }
 
 .xo-splash-mark {
@@ -119,7 +124,7 @@ button {
   left: 50%;
   width: 200px;
   transform: translateX(-50%) translateY(120%);
-  animation: xo-splash-peek-in .85s cubic-bezier(.18, .9, .28, 1.15) .55s forwards;
+  animation: xo-splash-peek-in 1s cubic-bezier(.18, .9, .28, 1.15) .7s forwards;
 }
 
 .xo-splash-bob {
@@ -139,6 +144,10 @@ button {
 
 @keyframes xo-splash-bob {
   50% { transform: translateY(-9px) rotate(-1.5deg); }
+}
+
+@keyframes xo-splash-out {
+  to { opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
