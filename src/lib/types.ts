@@ -106,6 +106,37 @@ export type ImageCleanup = {
   problemRegion?: ProblemRegion;
 };
 
+export type ProcessingIssue =
+  | "text_ocr_error"
+  | "math_ocr_error"
+  | "layout_error"
+  | "passage_link_error"
+  | "table_parse_error"
+  | "vision_validation_error"
+  | "parsing_error"
+  | "solution_error";
+
+export type MathExpression = {
+  raw: string;
+  latex?: string;
+  confidence?: number;
+};
+
+export type DocumentRecognition = {
+  version: 1;
+  sourceKind: "image" | "pdf_text_candidate" | "pdf_scanned_or_unknown";
+  rawOcrText: string;
+  correctedText: string;
+  confidence: number;
+  hasMath: boolean;
+  needsReview: boolean;
+  correctionApplied: boolean;
+  visionVerified: boolean;
+  warnings: string[];
+  processingIssues: ProcessingIssue[];
+  mathExpressions: MathExpression[];
+};
+
 export type NoteAiDetails = {
   title: string;
   subject: string;
@@ -125,6 +156,7 @@ export type NoteAiDetails = {
   inputArtifact?: HandwritingArtifact;
   problemRegion?: ProblemRegion;
   imageCleanup?: ImageCleanup;
+  documentRecognition?: DocumentRecognition;
 };
 
 export type Plan = {

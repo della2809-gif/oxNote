@@ -6,6 +6,7 @@ import { analyzeFromFile, type FileAnalysisResult } from "./analyze";
 import { analysisCacheKey, readAnalysisCache, writeAnalysisCache } from "./ai-analysis-cache";
 import { createAiPerformanceTracker } from "./ai-performance";
 import { cleanProblemImage } from "./problem-image-cleanup";
+import { recognizeAndVerifyDocument } from "./document-recognition";
 import {
   finalizeAiUsage,
   getMonthlyUploadedBytes,
@@ -15,7 +16,7 @@ import {
 } from "./billing";
 import { GPT_FILE_MODEL } from "./openai";
 import { initialReviewDate } from "./spaced-repetition";
-import type { HandwritingArtifact, HandwritingPoint, HandwritingStroke } from "./types";
+import type { DocumentRecognition, HandwritingArtifact, HandwritingPoint, HandwritingStroke } from "./types";
 
 const ACCEPTED_FILE_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
@@ -271,7 +272,7 @@ export async function createFileNote({
   const fileBase64 = Buffer.from(arrayBuffer).toString("base64");
   const solutionBase64 = solutionArrayBuffer ? Buffer.from(solutionArrayBuffer).toString("base64") : undefined;
   const cacheKey = analysisCacheKey([
-    "file_analysis_v8_katex_exponent_verification",
+    "file_analysis_v9_verified_ocr",
     user.id,
     uploadedFile.type,
     fileBase64,
@@ -306,6 +307,7 @@ export async function createFileNote({
   let latestPreview: FileNoteProgress["preview"] = {};
   let lastPreviewScanLength = 0;
   let analyzed: FileAnalysisResult;
+  let documentRecognition: DocumentRecognition | undefined;
 
   try {
     if (cached) {
@@ -325,7 +327,26 @@ export async function createFileNote({
       perf.mark("usage_reservation");
       if (!reservation.allowed) throw new FileNoteCreationError(usageErrorMessage(reservation.reason), reservation.reason === "rate_limited" ? 429 : 402);
 
-      onProgress?.({ stage: "analyzing", message: "AI가 문제의 글자와 조건을 읽고 있어요." });
+      onProgress?.({ stage: "recognizing", message: "원본과 인식 결과를 비교해 문제 전문을 확인하고 있어요." });
+      let recognitionUsage = { inputTokens: 0, outputTokens: 0 };
+      if (!handwritingArtifact?.recognizedText) {
+        try {
+          const recognized = await recognizeAndVerifyDocument({
+            input: Buffer.from(arrayBuffer),
+            mimeType: uploadedFile.type,
+            filename: uploadedFile.name,
+            subject: subjectName,
+            signal,
+          });
+          documentRecognition = recognized.recognition;
+          recognitionUsage = recognized.usage;
+        } catch (error) {
+          // 인식 전용 단계가 일시 실패해도 기존 파일 분석 경로로 안전하게 진행한다.
+          console.error("Document recognition verification failed:", error);
+        }
+      }
+
+      onProgress?.({ stage: "analyzing", message: "확정된 문제 전문을 기준으로 풀이를 만들고 있어요." });
       const openAiStartedAt = performance.now();
       analyzed = await analyzeFromFile({
         fileBase64,
@@ -334,7 +355,7 @@ export async function createFileNote({
         subject: subjectName,
         myAnswerHint,
         correctAnswerHint,
-        recognizedQuestionHint,
+        recognizedQuestionHint: recognizedQuestionHint || documentRecognition?.correctedText,
         recognizedLatex,
         learningStatus,
         studentSolutionBase64: solutionBase64,
@@ -365,6 +386,17 @@ export async function createFileNote({
           },
         },
       });
+      analyzed = {
+        ...analyzed,
+        usage: {
+          inputTokens: analyzed.usage.inputTokens + recognitionUsage.inputTokens,
+          outputTokens: analyzed.usage.outputTokens + recognitionUsage.outputTokens,
+        },
+        details: {
+          ...analyzed.details,
+          ...(documentRecognition ? { documentRecognition } : {}),
+        },
+      };
       perf.measure("openai_complete", openAiStartedAt, {
         inputTokens: analyzed.usage.inputTokens,
         outputTokens: analyzed.usage.outputTokens,

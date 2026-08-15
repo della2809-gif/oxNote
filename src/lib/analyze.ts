@@ -472,7 +472,7 @@ export async function analyzeFromFile({
 
   const hintLines = [
     recognizedQuestionHint
-      ? `사용자가 손글씨 인식 결과를 확인하거나 수정한 문제 전문: ${recognizedQuestionHint}. 이 텍스트를 문제의 기준으로 사용하고 원본 필기 이미지와 대조해 기호와 수식을 확인해 주세요.`
+      ? `OCR 검증 단계에서 원본과 비교해 확정했거나 사용자가 직접 확인한 문제 전문: ${recognizedQuestionHint}. 이 전문을 문제의 기준으로 사용하고, 풀이 단계에서 문제 문구·수치·기호·선택지를 임의로 고치지 마세요.`
       : null,
     recognizedLatex
       ? `손글씨에서 인식하고 사용자가 확인한 수식 LaTeX: ${recognizedLatex}. 문제 전문과 원본 이미지가 충돌하면 사용자가 확인한 내용을 우선하세요.`
