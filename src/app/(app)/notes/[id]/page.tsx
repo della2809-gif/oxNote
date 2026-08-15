@@ -293,7 +293,7 @@ export default async function NoteDetailPage({
         <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-8">
           <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-600">문제 인식 완료</span>
           <h1 className="mt-4 break-words text-xl font-bold leading-snug text-slate-900 sm:text-3xl">
-            {details?.title || typedNote.question}
+            <MathText>{details?.title || typedNote.question}</MathText>
           </h1>
           {details && (
             <div className="mt-4 flex flex-wrap gap-2">

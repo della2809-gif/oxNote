@@ -1,4 +1,5 @@
 import Link from "next/link";
+import MathText from "@/components/MathText";
 import { createClient } from "@/lib/supabase/server";
 import type { Note, NoteAiDetails, Subject } from "@/lib/types";
 import { BulkNotesForm } from "./BulkNotesForm";
@@ -406,7 +407,7 @@ export default async function NotesPage({
                   <div className="mt-2 flex flex-col items-start gap-2 sm:flex-row sm:justify-between sm:gap-4">
                     <div className="min-w-0">
                       <p className="line-clamp-1 text-sm font-bold leading-6 text-slate-800 group-hover:text-indigo-700">
-                        {details.title || note.question}
+                        <MathText>{details.title || note.question}</MathText>
                       </p>
                       {details.title && (
                         <p className="mt-1 line-clamp-1 text-xs text-slate-400">{note.question}</p>
