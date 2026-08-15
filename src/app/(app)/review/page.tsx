@@ -4,7 +4,7 @@ import type { Note, NoteAiDetails, Subject } from "@/lib/types";
 import { submitReview } from "../notes/actions";
 import { createReviewGoal, deleteReviewGoal } from "./actions";
 import OriginalSourceToggle from "./OriginalSourceToggle";
-import MathText from "@/components/MathText";
+import QuestionWithVisuals from "@/components/QuestionWithVisuals";
 
 type ReviewGoal = {
   id: string;
@@ -118,6 +118,17 @@ export default async function ReviewPage({
   const nextScheduled = filteredByFocus.find(
     (note) => new Date(note.next_review_at).getTime() > now.getTime(),
   );
+  const visualUrlMap = new Map<string, { url: string; altText: string }[]>();
+  await Promise.all(notes.map(async (note) => {
+    const details = note.ai_details && typeof note.ai_details === "object"
+      ? note.ai_details as Partial<NoteAiDetails>
+      : {};
+    const visualUrls = (await Promise.all((details.visualAssets ?? []).map(async (asset) => {
+      const { data } = await supabase.storage.from("note-files").createSignedUrl(asset.path, 3600);
+      return data?.signedUrl ? { url: data.signedUrl, altText: asset.altText } : null;
+    }))).filter((asset): asset is { url: string; altText: string } => Boolean(asset));
+    visualUrlMap.set(note.id, visualUrls);
+  }));
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 text-slate-900">
@@ -175,7 +186,9 @@ export default async function ReviewPage({
 
               <section aria-label="원본에서 추출한 문제 전문">
                 <p className="mb-2 text-xs font-bold text-slate-400">원본에서 추출한 문제 전문</p>
-                <p className="whitespace-pre-wrap break-words text-base font-medium leading-7"><MathText>{note.question}</MathText></p>
+                <div className="text-base font-medium leading-7">
+                  <QuestionWithVisuals question={note.question} visuals={visualUrlMap.get(note.id) ?? []} />
+                </div>
               </section>
               {note.source_file_url && <OriginalSourceToggle noteId={note.id} />}
 

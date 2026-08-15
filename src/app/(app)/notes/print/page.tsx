@@ -28,7 +28,7 @@ function readLayout(raw: string | string[] | undefined): PrintLayout {
   return value === "answer" ? value : "worksheet";
 }
 
-type PrintableNote = { note: Note; details: Partial<NoteAiDetails>; subject: Subject | null };
+type PrintableNote = { note: Note; details: Partial<NoteAiDetails>; subject: Subject | null; visualUrls: { url: string; altText: string }[] };
 
 export default async function PrintNotesPage({ searchParams }: { searchParams: Promise<{ ids?: string | string[]; sections?: string | string[]; layout?: string | string[] }> }) {
   const params = await searchParams;
@@ -48,14 +48,19 @@ export default async function PrintNotesPage({ searchParams }: { searchParams: P
   const noteMap = new Map(notes.map((note) => [note.id, note]));
   const orderedNotes = ids.map((id) => noteMap.get(id)).filter((note): note is Note => Boolean(note));
   const subjectMap = new Map(((subjectsData as Subject[] | null) ?? []).map((subject) => [subject.id, subject]));
-  const printable: PrintableNote[] = orderedNotes.map((note) => {
+  const printable: PrintableNote[] = await Promise.all(orderedNotes.map(async (note) => {
     const details = asDetails(note.ai_details);
+    const visualUrls = (await Promise.all((details.visualAssets ?? []).map(async (asset) => {
+      const { data } = await supabase.storage.from("note-files").createSignedUrl(asset.path, 3600);
+      return data?.signedUrl ? { url: data.signedUrl, altText: asset.altText } : null;
+    }))).filter((asset): asset is { url: string; altText: string } => Boolean(asset));
     return {
       note,
       details,
       subject: note.subject_id ? subjectMap.get(note.subject_id) ?? null : null,
+      visualUrls,
     };
-  });
+  }));
 
   return (
     <div className="print-document mx-auto max-w-[210mm]">
@@ -89,9 +94,9 @@ function NoteSheet({ item, index, total, sections, variant }: { item: PrintableN
           {variant === "problem" ? (
             <div className="print-problem-row">
               <strong className="print-problem-number" aria-label={`${index + 1}번 문제`}>{index + 1}</strong>
-              <QuestionTranscript value={note.question} />
+              <QuestionTranscript value={note.question} visuals={item.visualUrls} />
             </div>
-          ) : <QuestionTranscript value={note.question} />}
+          ) : <QuestionTranscript value={note.question} visuals={item.visualUrls} />}
         </PrintBox>}
         {has("analysis") && <PrintBox title="핵심 개념과 정답" color="text-emerald-600"><dl className="mt-2 rounded-lg bg-slate-50 p-3 text-[8px]"><dt className="font-bold text-slate-400">핵심 개념</dt><dd className="mt-1 font-semibold"><MathText>{details.coreConcepts?.slice(0, 5).join(" · ") || "-"}</MathText></dd><dt className="mt-2 font-bold text-slate-400">정답</dt><dd className="mt-1 font-semibold text-emerald-600"><MathText>{compactText(details.answerSummary || note.correct_answer, 180)}</MathText></dd></dl></PrintBox>}
       </div>
@@ -104,8 +109,8 @@ function NoteSheet({ item, index, total, sections, variant }: { item: PrintableN
   );
 }
 
-function QuestionTranscript({ value }: { value: string }) {
-  const lines = value.trim().split(/\r?\n/);
+function QuestionTranscript({ value, visuals = [] }: { value: string; visuals?: { url: string; altText: string }[] }) {
+  const lines = value.replace(/\[(?:시각\s*자료|도표|그래프|그림)\]/g, "").trim().split(/\r?\n/);
   const content: React.ReactNode[] = [];
   let index = 0;
 
@@ -127,7 +132,12 @@ function QuestionTranscript({ value }: { value: string }) {
     index += 1;
   }
 
-  return <div className="print-question-transcript">{content}</div>;
+  return <div className="print-question-transcript">{content}{visuals.map((visual, visualIndex) => (
+    <figure key={`${visual.url}-${visualIndex}`} className="my-3 break-inside-avoid text-center">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={visual.url} alt={visual.altText} className="mx-auto h-auto max-h-[72mm] max-w-full object-contain" />
+    </figure>
+  ))}</div>;
 }
 
 function PrintBox({ title, color, className = "", children }: { title: string; color: string; className?: string; children: React.ReactNode }) {

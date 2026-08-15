@@ -106,6 +106,24 @@ export type ImageCleanup = {
   problemRegion?: ProblemRegion;
 };
 
+export type VisualAssetKind =
+  | "chart"
+  | "table"
+  | "coordinate_graph"
+  | "geometry"
+  | "diagram"
+  | "map"
+  | "other";
+
+export type VisualAsset = {
+  version: 1;
+  kind: VisualAssetKind;
+  path: string;
+  region: ProblemRegion;
+  altText: string;
+  placement: "marker" | "after_question";
+};
+
 export type ProcessingIssue =
   | "text_ocr_error"
   | "math_ocr_error"
@@ -156,6 +174,7 @@ export type NoteAiDetails = {
   inputArtifact?: HandwritingArtifact;
   problemRegion?: ProblemRegion;
   imageCleanup?: ImageCleanup;
+  visualAssets?: VisualAsset[];
   documentRecognition?: DocumentRecognition;
 };
 

@@ -67,6 +67,7 @@ const TUTOR_INSTRUCTIONS = `너는 모든 시험 분야를 다루는 한국어 A
 - problem_region은 인쇄된 현재 문제의 번호·본문·보기·도형을 모두 포함하고, 주변의 다른 문제·손글씨·채점 표시·불필요한 여백은 제외한다. 좌표는 이미지 전체를 가로·세로 각각 1000으로 정규화해 반환한다.
 - question은 문제를 설명하거나 다시 구성한 글이 아니라 원본을 그대로 옮긴 전사본이다. 원본의 문제 번호, 지시문, 본문, 말풍선·인물 이름, 보기 번호, 기호와 단위를 빠짐없이 같은 순서로 보존한다.
 - 표는 원본의 행·열 제목과 모든 셀을 Markdown 표로 옮기고, 말풍선은 '[말풍선: 인물명] 내용'처럼 위치 관계가 드러나게 적는다. 원본에 없는 '표', 해설 제목, 계산 결과 또는 풀어쓴 목록을 새로 만들지 않는다.
+- 도표·막대그래프·좌표그래프·기하 도형·지도처럼 이미지 자체가 문제 조건인 자료는 글자로 평면화해 대신하지 않는다. question의 원래 위치에 반드시 한 줄짜리 '[시각 자료]' 표식을 한 번 넣고 visual_assets에 해당 영역을 반환한다. 표의 구조를 완전히 확신할 때만 Markdown 표도 함께 제공한다.
 - 사진이 흐려 읽을 수 없는 한 글자나 숫자는 추측해 채우지 말고 '[판독 불확실]'로 표시한다. 필기와 채점 흔적은 question에 포함하지 않는다.
 - 대분수의 정수부·분자·분모, 소수점, 음수 부호, 지수, 괄호, 도형의 밑변·높이·가로·세로와 단위를 빠짐없이 읽는다.
 - question의 모든 수학식은 인라인 LaTeX 구분자 \\(...\\) 안에 전사한다. 분수는 \\frac{분자}{분모}, 거듭제곱은 ^{지수}, 제곱근은 \\sqrt{값}, 곱셈은 \\times를 사용한다. 특히 \\(9^{\\frac{1}{4}}\\), \\(3^{-\\frac{1}{2}}\\), \\(\\frac{3\\sqrt{10}}{10}\\)처럼 분수 지수와 제곱근의 범위를 중괄호로 정확히 묶고, 수식 명령의 역슬래시를 중복해서 쓰지 않는다.
@@ -258,6 +259,24 @@ const FILE_ANALYSIS_SCHEMA = {
           additionalProperties: false,
           description: "인쇄된 한 문제 전체를 포함하되 주변 문제·여백·필기를 제외한 경계 상자",
         },
+        visual_assets: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              kind: { type: "string", enum: ["chart", "table", "coordinate_graph", "geometry", "diagram", "map", "other"] },
+              x: { type: "number" },
+              y: { type: "number" },
+              width: { type: "number" },
+              height: { type: "number" },
+              confidence: { type: "string", enum: ["high", "medium", "low"] },
+              alt_text: { type: "string", description: "자료의 종류와 역할만 설명하는 짧은 대체 텍스트. 수치나 내용을 새로 추측하지 않음" },
+            },
+            required: ["kind", "x", "y", "width", "height", "confidence", "alt_text"],
+            additionalProperties: false,
+          },
+          description: "문제 안에서 원형을 보존해야 하는 도표·그래프·도형 영역. 없으면 빈 배열",
+        },
         learning_elements: {
           type: "array",
           items: {
@@ -321,6 +340,7 @@ const FILE_ANALYSIS_SCHEMA = {
         "core_concepts",
         "recognized_conditions",
         "problem_region",
+        "visual_assets",
         "learning_elements",
         "grade_rationale",
         "difficulty_rationale",
@@ -567,6 +587,22 @@ export async function analyzeFromFile({
           : "low" as const,
       }
     : undefined;
+  const visualAssets = (Array.isArray(details.visual_assets) ? details.visual_assets : [])
+    .filter((asset: Record<string, unknown>) => [asset.x, asset.y, asset.width, asset.height].every(Number.isFinite))
+    .slice(0, 6)
+    .map((asset: Record<string, unknown>) => ({
+      version: 1 as const,
+      kind: ["chart", "table", "coordinate_graph", "geometry", "diagram", "map"].includes(String(asset.kind))
+        ? String(asset.kind) as "chart" | "table" | "coordinate_graph" | "geometry" | "diagram" | "map"
+        : "other" as const,
+      path: "",
+      region: {
+        x: Number(asset.x), y: Number(asset.y), width: Number(asset.width), height: Number(asset.height),
+        confidence: asset.confidence === "high" || asset.confidence === "medium" ? asset.confidence : "low" as const,
+      },
+      altText: String(asset.alt_text || "문제에 포함된 시각 자료"),
+      placement: "marker" as const,
+    }));
   const correctedAnswer = applyMathVerificationCorrections(
     parsed.correct_answer ?? "",
     verifiedDetails.mathVerification,
@@ -578,7 +614,7 @@ export async function analyzeFromFile({
     analysis: parsed.analysis ?? "",
     mistakeType: parsed.mistake_type ?? "",
     tags: parsed.tags ?? [],
-    details: { ...verifiedDetails, problemRegion },
+    details: { ...verifiedDetails, problemRegion, visualAssets },
     succeeded: true,
     usage: streamed.usage,
   };

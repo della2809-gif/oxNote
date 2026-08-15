@@ -5,7 +5,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { analyzeFromFile, type FileAnalysisResult } from "./analyze";
 import { analysisCacheKey, readAnalysisCache, writeAnalysisCache } from "./ai-analysis-cache";
 import { createAiPerformanceTracker } from "./ai-performance";
-import { cleanProblemImage } from "./problem-image-cleanup";
+import { cleanProblemImage, cropVisualAsset } from "./problem-image-cleanup";
 import { recognizeAndVerifyDocument } from "./document-recognition";
 import {
   finalizeAiUsage,
@@ -442,10 +442,26 @@ export async function createFileNote({
     console.error("Problem image cleanup failed:", error);
     return null;
   });
-  const [problemUpload, solutionUpload, cleanedImage] = await Promise.all([
+  const visualCropPromise = Promise.all(
+    (analyzed.details.visualAssets ?? [])
+      .filter((asset) => asset.region.confidence !== "low")
+      .map(async (asset) => ({
+        asset,
+        cropped: await cropVisualAsset({
+          input: Buffer.from(arrayBuffer),
+          mimeType: uploadedFile.type,
+          region: asset.region,
+        }),
+      })),
+  ).catch((error) => {
+    console.error("Visual asset extraction failed:", error);
+    return [];
+  });
+  const [problemUpload, solutionUpload, cleanedImage, visualCrops] = await Promise.all([
     uploadPromise.then((result) => result[0]),
     uploadPromise.then((result) => result[1]),
     cleanupPromise,
+    visualCropPromise,
   ]);
   perf.measure("storage_upload", uploadStartedAt, {
     problemSucceeded: !problemUpload.error,
@@ -456,6 +472,7 @@ export async function createFileNote({
     solutionUpload.error ? null : solutionPath,
   ].filter((path): path is string => Boolean(path));
   let cleanedPath: string | null = null;
+  const storedVisualAssets: NonNullable<typeof analyzed.details.visualAssets> = [];
   if (cleanedImage && !problemUpload.error) {
     const candidatePath = `${user.id}/${crypto.randomUUID()}-cleaned-problem.webp`;
     const { error: cleanedUploadError } = await supabase.storage
@@ -467,6 +484,22 @@ export async function createFileNote({
       requestedUploadBytes += cleanedImage.buffer.byteLength;
     } else {
       console.error("Cleaned problem image upload failed:", cleanedUploadError);
+    }
+  }
+  if (!problemUpload.error) {
+    for (const { asset, cropped } of visualCrops) {
+      if (!cropped) continue;
+      const assetPath = `${user.id}/${crypto.randomUUID()}-visual-${asset.kind}.webp`;
+      const { error: assetUploadError } = await supabase.storage
+        .from("note-files")
+        .upload(assetPath, cropped.buffer, { contentType: "image/webp" });
+      if (assetUploadError) {
+        console.error("Visual asset upload failed:", assetUploadError);
+        continue;
+      }
+      uploadedPaths.push(assetPath);
+      requestedUploadBytes += cropped.buffer.byteLength;
+      storedVisualAssets.push({ ...asset, path: assetPath });
     }
   }
   perf.measure("image_cleanup", cleanupStartedAt, { cleaned: Boolean(cleanedPath) });
@@ -546,6 +579,7 @@ export async function createFileNote({
               },
             }
           : {}),
+        ...(storedVisualAssets.length > 0 ? { visualAssets: storedVisualAssets } : {}),
       },
       mistake_type: analyzed.mistakeType,
       tags: [...analyzed.tags, learningStatus === "correct_review" ? "학습상태:맞았지만 복습" : "학습상태:틀린 문제"],

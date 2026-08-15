@@ -20,6 +20,30 @@ function cropBox(width: number, height: number, region?: ProblemRegion) {
   return { left, top, width: right - left, height: bottom - top };
 }
 
+export async function cropVisualAsset({
+  input,
+  mimeType,
+  region,
+}: {
+  input: Buffer;
+  mimeType: string;
+  region: ProblemRegion;
+}) {
+  if (!IMAGE_TYPES.has(mimeType)) return null;
+  const oriented = await sharp(input, { failOn: "none" })
+    .rotate()
+    .flatten({ background: "#ffffff" })
+    .toBuffer({ resolveWithObject: true });
+  const box = cropBox(oriented.info.width, oriented.info.height, region);
+  if (!box) return null;
+  const buffer = await sharp(oriented.data)
+    .extract(box)
+    .toColourspace("srgb")
+    .webp({ quality: 92, effort: 4 })
+    .toBuffer();
+  return { buffer, width: box.width, height: box.height };
+}
+
 export async function cleanProblemImage({
   input,
   mimeType,

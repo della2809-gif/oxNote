@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import MathText from "@/components/MathText";
+import QuestionWithVisuals from "@/components/QuestionWithVisuals";
 import { createClient } from "@/lib/supabase/server";
 import type { Note, NoteAiDetails, Subject } from "@/lib/types";
 import {
@@ -44,6 +45,9 @@ function asDetails(value: unknown): NoteAiDetails | null {
         : undefined,
     problemRegion: details.problemRegion,
     imageCleanup: details.imageCleanup,
+    visualAssets: Array.isArray(details.visualAssets) ? details.visualAssets : [],
+    documentRecognition: details.documentRecognition,
+    inputArtifact: details.inputArtifact,
   };
 }
 
@@ -127,6 +131,12 @@ export default async function NoteDetailPage({
     details?.imageCleanup?.cleanedPath ? signedFileUrl(supabase, typedNote.source_file_url) : Promise.resolve(null),
     signedFileUrl(supabase, typedNote.student_solution_file_url),
   ]);
+  const visualUrls = (await Promise.all(
+    (details?.visualAssets ?? []).map(async (asset) => ({
+      url: await signedFileUrl(supabase, asset.path),
+      altText: asset.altText,
+    })),
+  )).filter((asset): asset is { url: string; altText: string } => Boolean(asset.url));
   const hasStudentSolution = Boolean(solutionFileUrl || typedNote.my_answer);
 
   return (
@@ -203,7 +213,7 @@ export default async function NoteDetailPage({
               aria-label="수식이 적용된 문제 전문"
               className="whitespace-pre-wrap rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-medium leading-8 text-slate-800"
             >
-              <MathText>{typedNote.question}</MathText>
+              <QuestionWithVisuals question={typedNote.question} visuals={visualUrls} />
             </div>
             <details className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
               <summary className="cursor-pointer text-xs font-bold text-indigo-600">

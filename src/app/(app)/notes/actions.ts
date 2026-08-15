@@ -224,6 +224,7 @@ export async function deleteNote(formData: FormData) {
     note?.source_file_url,
     note?.student_solution_file_url,
     (note?.ai_details as { imageCleanup?: { cleanedPath?: string } } | null)?.imageCleanup?.cleanedPath,
+    ...(((note?.ai_details as { visualAssets?: { path?: string }[] } | null)?.visualAssets ?? []).map((asset) => asset.path)),
   ].filter((path): path is string => Boolean(path));
   if (filesToRemove.length > 0) {
     await supabase.storage.from("note-files").remove(filesToRemove);
@@ -339,6 +340,7 @@ export async function deleteSelectedNotes(formData: FormData) {
           note.source_file_url,
           note.student_solution_file_url,
           (note.ai_details as { imageCleanup?: { cleanedPath?: string } } | null)?.imageCleanup?.cleanedPath,
+          ...(((note.ai_details as { visualAssets?: { path?: string }[] } | null)?.visualAssets ?? []).map((asset) => asset.path)),
         ])
         .filter((path): path is string => Boolean(path)),
     ),
