@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
 import { PwaRegistration } from "@/components/PwaRegistration";
+import { SplashScreen } from "@/components/SplashScreen";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 
@@ -13,10 +14,13 @@ export const metadata: Metadata = {
   formatDetection: { telephone: false },
   icons: {
     icon: [
-      { url: "/icons/icon-192.png?v=3", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png?v=3", sizes: "512x512", type: "image/png" },
+      { url: "/icons/xonote-icon.svg?v=4", type: "image/svg+xml" },
+      { url: "/icons/icon-16.png?v=4", sizes: "16x16", type: "image/png" },
+      { url: "/icons/icon-32.png?v=4", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-192.png?v=4", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png?v=4", sizes: "512x512", type: "image/png" },
     ],
-    apple: "/icons/apple-touch-icon.png?v=3",
+    apple: "/icons/apple-touch-icon.png?v=4",
   },
 };
 
@@ -24,7 +28,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  themeColor: "#1E1B4B",
+  themeColor: "#3169EF",
 };
 
 export default function RootLayout({
@@ -35,6 +39,7 @@ export default function RootLayout({
   return (
     <html lang="ko" className="h-full antialiased">
       <body className="flex min-h-full w-full min-w-0 flex-col overflow-x-hidden">
+        <SplashScreen />
         {children}
         <PwaRegistration />
         <PwaInstallPrompt />

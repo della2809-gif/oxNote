@@ -1,3 +1,5 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+@import url("https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&display=swap");
 @import "tailwindcss";
 
 :root {
@@ -5,6 +7,7 @@
   --foreground: #171717;
   --app-font-sans: Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", Arial, sans-serif;
   --app-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --app-font-logo: "Baloo 2", Pretendard, "Noto Sans KR", sans-serif;
 }
 
 @theme inline {
@@ -62,6 +65,86 @@ button {
   padding: 10mm;
   color: #0f172a;
   box-shadow: 0 12px 35px rgb(15 23 42 / 10%);
+}
+
+.xo-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 24px;
+  background: #f4f6fc;
+  color: #0e1533;
+  font-family: var(--app-font-sans);
+}
+
+.xo-splash-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(-3%) scale(.96);
+  animation: xo-splash-in .7s cubic-bezier(.2, .8, .25, 1) .15s forwards;
+}
+
+.xo-splash-mark {
+  width: 90px;
+  height: auto;
+  margin-bottom: 16px;
+}
+
+.xo-splash-wordmark {
+  margin-bottom: 26px;
+  color: #0e1533;
+  font-family: var(--app-font-logo);
+  font-size: clamp(2.6rem, 13vw, 4rem);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.xo-splash-wordmark span { color: #2e6bf5; }
+.xo-splash-line1 { font-size: clamp(1.7rem, 8vw, 2.5rem); font-weight: 700; line-height: 1.15; letter-spacing: -.5px; }
+.xo-splash-line2 { margin-top: 12px; color: #7b86b4; font-size: clamp(1rem, 4.5vw, 1.25rem); font-weight: 500; }
+.xo-splash-line3 { margin-top: 20px; color: #2e6bf5; font-size: clamp(.85rem, 3.8vw, 1.02rem); font-weight: 600; letter-spacing: .5px; }
+
+.xo-splash-peek {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 200px;
+  transform: translateX(-50%) translateY(120%);
+  animation: xo-splash-peek-in .85s cubic-bezier(.18, .9, .28, 1.15) .55s forwards;
+}
+
+.xo-splash-bob {
+  transform-origin: 50% 100%;
+  animation: xo-splash-bob 2.8s ease-in-out infinite;
+}
+
+@keyframes xo-splash-in {
+  to { opacity: 1; transform: translateY(-6%) scale(1); }
+}
+
+@keyframes xo-splash-peek-in {
+  60% { transform: translateX(-50%) translateY(24%); }
+  80% { transform: translateX(-50%) translateY(38%); }
+  to { transform: translateX(-50%) translateY(32%); }
+}
+
+@keyframes xo-splash-bob {
+  50% { transform: translateY(-9px) rotate(-1.5deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xo-splash-stage { animation: none; opacity: 1; transform: translateY(-6%); }
+  .xo-splash-peek { animation: none; transform: translateX(-50%) translateY(32%); }
+  .xo-splash-bob { animation: none; }
 }
 
 .print-source-image {

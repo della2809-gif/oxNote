@@ -1,6 +1,6 @@
-const CACHE_NAME = "xonote-static-v3";
+const CACHE_NAME = "xonote-static-v4";
 const OFFLINE_URL = "/offline";
-const PRECACHE_URLS = [OFFLINE_URL, "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png"];
+const PRECACHE_URLS = [OFFLINE_URL, "/icons/icon-32.png", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS)));

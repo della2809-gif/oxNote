@@ -10,14 +10,14 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     background_color: "#f8fafc",
-    theme_color: "#1E1B4B",
+    theme_color: "#3169EF",
     orientation: "any",
     categories: ["education", "productivity"],
     lang: "ko-KR",
     icons: [
-      { src: "/icons/icon-192.png?v=3", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/icons/icon-512.png?v=3", sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: "/icons/icon-maskable-512.png?v=3", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/icons/icon-192.png?v=4", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-512.png?v=4", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-maskable-512.png?v=4", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
     shortcuts: [
       { name: "새 문제 분석", short_name: "문제 분석", description: "새 오답 문제를 등록하고 AI로 분석합니다.", url: "/notes/new", icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }] },
