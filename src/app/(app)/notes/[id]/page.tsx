@@ -295,11 +295,9 @@ export default async function NoteDetailPage({
           <h1 className="mt-4 break-words text-xl font-bold leading-snug text-slate-900 sm:text-3xl">
             <MathText>{details?.title || typedNote.question}</MathText>
           </h1>
-          {details && (
+          {details?.curriculum && (
             <div className="mt-4 flex flex-wrap gap-2">
-              {details.gradeLevel && <span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600">{details.gradeLevel}</span>}
-              {details.curriculum && <span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600">{details.curriculum}</span>}
-              {details.difficulty && <span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600">난이도 {details.difficulty}</span>}
+              <span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600">{details.curriculum}</span>
             </div>
           )}
 
