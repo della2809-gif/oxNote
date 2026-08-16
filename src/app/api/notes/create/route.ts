@@ -7,7 +7,7 @@ import {
 } from "@/lib/create-file-note";
 import { createClient } from "@/lib/supabase/server";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type StreamEvent =
   | ({ type: "progress" } & FileNoteProgress)
@@ -60,13 +60,21 @@ export async function POST(request: Request) {
     start(controller) {
       let closed = false;
       const send = (event: StreamEvent) => {
-        if (closed || request.signal.aborted) return;
-        controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+        } catch {
+          closed = true;
+        }
       };
       const close = () => {
         if (closed) return;
         closed = true;
-        controller.close();
+        try {
+          controller.close();
+        } catch {
+          // The browser may have closed the stream after the note was saved.
+        }
       };
 
       void (async () => {

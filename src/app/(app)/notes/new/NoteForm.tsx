@@ -219,23 +219,27 @@ export default function NoteForm({
       const decoder = new TextDecoder();
       let buffered = "";
       let completedNoteId = "";
+      const consumeStreamLine = (line: string) => {
+        if (!line.trim()) return;
+        const streamEvent = JSON.parse(line) as NoteStreamEvent;
+        if (streamEvent.type === "error") throw new Error(streamEvent.error ?? "AI 분석에 실패했습니다.");
+        if (streamEvent.message) setProgressMessage(streamEvent.message);
+        if (streamEvent.preview) {
+          setAnalysisPreview((current) => ({ ...current, ...streamEvent.preview }));
+        }
+        if (streamEvent.type === "complete" && streamEvent.noteId) completedNoteId = streamEvent.noteId;
+      };
       while (true) {
         const { value, done } = await reader.read();
         buffered += decoder.decode(value, { stream: !done });
         const lines = buffered.split("\n");
         buffered = lines.pop() ?? "";
         for (const line of lines) {
-          if (!line.trim()) continue;
-          const streamEvent = JSON.parse(line) as NoteStreamEvent;
-          if (streamEvent.type === "error") throw new Error(streamEvent.error ?? "AI 분석에 실패했습니다.");
-          if (streamEvent.message) setProgressMessage(streamEvent.message);
-          if (streamEvent.preview) {
-            setAnalysisPreview((current) => ({ ...current, ...streamEvent.preview }));
-          }
-          if (streamEvent.type === "complete" && streamEvent.noteId) completedNoteId = streamEvent.noteId;
+          consumeStreamLine(line);
         }
         if (done) break;
       }
+      consumeStreamLine(buffered);
       if (!completedNoteId) throw new Error("분석은 끝났지만 저장 결과를 확인하지 못했습니다.");
       setProgressMessage("저장이 완료되었어요. 오답노트로 이동합니다.");
       router.push(`/notes/${completedNoteId}`);
