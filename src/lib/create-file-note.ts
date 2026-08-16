@@ -8,6 +8,8 @@ import { createAiPerformanceTracker } from "./ai-performance";
 import { cleanProblemImage, cropVisualAsset } from "./problem-image-cleanup";
 import { recognizeAndVerifyDocument } from "./document-recognition";
 import { canUseRecognitionAsAuthoritative } from "./ocr-policy";
+import { isLikelyMathProblem } from "./learning-action-policy";
+import { auditMathAnalysis } from "./math-reasoning-audit";
 import {
   finalizeAiUsage,
   getMonthlyUploadedBytes,
@@ -15,7 +17,7 @@ import {
   reserveAiUsage,
   usageErrorMessage,
 } from "./billing";
-import { GPT_FILE_MODEL, OPENAI_IMAGE_DETAIL } from "./openai";
+import { GPT_FILE_MODEL, GPT_REASONING_MODEL, OPENAI_IMAGE_DETAIL } from "./openai";
 import { initialReviewDate } from "./spaced-repetition";
 import type { DocumentRecognition, HandwritingArtifact, HandwritingPoint, HandwritingStroke } from "./types";
 
@@ -273,7 +275,7 @@ export async function createFileNote({
   const fileBase64 = Buffer.from(arrayBuffer).toString("base64");
   const solutionBase64 = solutionArrayBuffer ? Buffer.from(solutionArrayBuffer).toString("base64") : undefined;
   const cacheKey = analysisCacheKey([
-    "file_analysis_v11_learning_actions",
+    "file_analysis_v12_reasoning_audit",
     user.id,
     uploadedFile.type,
     fileBase64,
@@ -355,6 +357,10 @@ export async function createFileNote({
       const untrustedQuestionCandidate = !recognizedQuestionHint && documentRecognition && !recognitionIsAuthoritative
         ? documentRecognition.correctedText
         : undefined;
+      const useAdvancedMathReasoning = isLikelyMathProblem(
+        subjectName,
+        [trustedQuestionHint, untrustedQuestionCandidate, recognizedLatex].filter(Boolean).join("\n"),
+      );
       const openAiStartedAt = performance.now();
       analyzed = await analyzeFromFile({
         fileBase64,
@@ -366,7 +372,12 @@ export async function createFileNote({
         recognizedQuestionHint: trustedQuestionHint,
         recognizedQuestionCandidate: untrustedQuestionCandidate,
         recognizedLatex,
-        imageDetail: untrustedQuestionCandidate && uploadedFile.type !== "application/pdf" ? "original" : OPENAI_IMAGE_DETAIL,
+        imageDetail: useAdvancedMathReasoning && uploadedFile.type !== "application/pdf"
+          ? "original"
+          : untrustedQuestionCandidate && uploadedFile.type !== "application/pdf"
+            ? "original"
+            : OPENAI_IMAGE_DETAIL,
+        useAdvancedMathReasoning,
         learningStatus,
         studentSolutionBase64: solutionBase64,
         studentSolutionMimeType: uploadedSolution?.type,
@@ -396,6 +407,30 @@ export async function createFileNote({
           },
         },
       });
+      if (useAdvancedMathReasoning) {
+        onProgress?.({ stage: "solving", message: "독립 검산으로 정답과 풀이 과정을 다시 확인하고 있어요." });
+        const audited = await auditMathAnalysis({
+          question: analyzed.question,
+          answer: analyzed.correctAnswer,
+          details: analyzed.details,
+          signal,
+        });
+        if (audited.audit.status === "needs_review") {
+          throw new FileNoteCreationError(
+            `문제 조건을 확정하기 어려워 저장하지 않았습니다. 원본을 다시 촬영해 주세요.${audited.audit.issues[0] ? ` (${audited.audit.issues[0]})` : ""}`,
+            422,
+          );
+        }
+        analyzed = {
+          ...analyzed,
+          correctAnswer: audited.answer,
+          details: audited.details,
+          usage: {
+            inputTokens: analyzed.usage.inputTokens + audited.usage.inputTokens,
+            outputTokens: analyzed.usage.outputTokens + audited.usage.outputTokens,
+          },
+        };
+      }
       analyzed = {
         ...analyzed,
         usage: {
@@ -555,7 +590,9 @@ export async function createFileNote({
         userId: user.id,
         cacheKey,
         kind: "file_analysis",
-        model: GPT_FILE_MODEL,
+        model: analyzed.details.reasoningAudit
+          ? `${GPT_REASONING_MODEL}+${GPT_REASONING_MODEL}:independent-audit`
+          : GPT_FILE_MODEL,
         result: analyzed,
       }),
     );

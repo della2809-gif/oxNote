@@ -4,7 +4,8 @@ import { analyzeFromText } from "@/lib/analyze";
 import { analysisCacheKey, readAnalysisCache, writeAnalysisCache } from "@/lib/ai-analysis-cache";
 import { createAiPerformanceTracker } from "@/lib/ai-performance";
 import { finalizeAiUsage, reserveAiUsage, usageErrorMessage } from "@/lib/billing";
-import { GPT_FAST_MODEL } from "@/lib/openai";
+import { isLikelyMathProblem } from "@/lib/learning-action-policy";
+import { GPT_FAST_MODEL, GPT_REASONING_MODEL } from "@/lib/openai";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
   }
 
   const cacheKey = analysisCacheKey([
-    "text_analysis",
+    "text_analysis_v2_model_routing",
     user.id,
     String(subject ?? ""),
     question,
@@ -81,7 +82,7 @@ export async function POST(request: Request) {
       userId: user.id,
       cacheKey,
       kind: "text_analysis",
-      model: GPT_FAST_MODEL,
+      model: isLikelyMathProblem(subject, question) ? GPT_REASONING_MODEL : GPT_FAST_MODEL,
       result,
     }));
   }

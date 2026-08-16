@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { analyzeFromText, type TextAnalysisResult } from "@/lib/analyze";
+import { isLikelyMathProblem } from "@/lib/learning-action-policy";
 import { analysisCacheKey, readAnalysisCache, writeAnalysisCache } from "@/lib/ai-analysis-cache";
 import { createAiPerformanceTracker } from "@/lib/ai-performance";
 import {
@@ -17,7 +18,7 @@ import {
   reserveAiUsage,
   usageErrorMessage,
 } from "@/lib/billing";
-import { GPT_FAST_MODEL } from "@/lib/openai";
+import { GPT_FAST_MODEL, GPT_REASONING_MODEL } from "@/lib/openai";
 import {
   initialReviewDate,
   reviewScheduleAfterResult,
@@ -89,7 +90,7 @@ export async function createNote(formData: FormData) {
   const subjectName = await lookupSubjectName(supabase, subjectId);
   perf.mark("subject_lookup");
   const cacheKey = analysisCacheKey([
-    "text_analysis",
+    "text_analysis_v2_model_routing",
     user.id,
     subjectName,
     question,
@@ -130,7 +131,7 @@ export async function createNote(formData: FormData) {
       userId: user.id,
       cacheKey,
       kind: "text_analysis",
-      model: GPT_FAST_MODEL,
+      model: isLikelyMathProblem(subjectName, question) ? GPT_REASONING_MODEL : GPT_FAST_MODEL,
       result: analyzed,
     }));
   }

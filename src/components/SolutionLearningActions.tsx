@@ -15,35 +15,46 @@ export default function SolutionLearningActions({
   noteId,
   alternativeSolution,
   previewPractice,
+  isMath = false,
 }: {
   noteId: string;
   alternativeSolution?: NoteAiDetails["alternativeSolution"];
   previewPractice?: PracticeProblem;
+  isMath?: boolean;
 }) {
   const [showAlternative, setShowAlternative] = useState(false);
   const [practice, setPractice] = useState<PracticeProblem | null>(null);
   const [showPracticeAnswer, setShowPracticeAnswer] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [variant, setVariant] = useState(0);
   const hasAlternative = Boolean(alternativeSolution?.available && alternativeSolution.steps.length > 0);
 
-  async function createPracticeProblem() {
-    if (practice) {
+  async function createPracticeProblem(makeAnother = false) {
+    if (practice && !makeAnother) {
       document.getElementById("similar-practice")?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     if (previewPractice) {
       setPractice(previewPractice);
+      setShowPracticeAnswer(false);
       requestAnimationFrame(() => document.getElementById("similar-practice")?.scrollIntoView({ behavior: "smooth", block: "center" }));
       return;
     }
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`/api/notes/${noteId}/similar`, { method: "POST" });
+      const nextVariant = makeAnother ? variant + 1 : variant;
+      const response = await fetch(`/api/notes/${noteId}/similar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ variant: nextVariant }),
+      });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "비슷한 문제를 만들지 못했습니다.");
       setPractice(body.practice);
+      setVariant(nextVariant);
+      setShowPracticeAnswer(false);
       requestAnimationFrame(() => document.getElementById("similar-practice")?.scrollIntoView({ behavior: "smooth", block: "center" }));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "비슷한 문제를 만들지 못했습니다.");
@@ -52,9 +63,11 @@ export default function SolutionLearningActions({
     }
   }
 
+  if (!hasAlternative && !isMath) return null;
+
   return (
     <div className="rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm sm:p-5">
-      <div className={`grid gap-3 ${hasAlternative ? "sm:grid-cols-2" : "sm:grid-cols-1"}`}>
+      <div className={`grid gap-3 ${hasAlternative && isMath ? "sm:grid-cols-2" : "sm:grid-cols-1"}`}>
         {hasAlternative && (
           <button
             type="button"
@@ -65,14 +78,16 @@ export default function SolutionLearningActions({
             {showAlternative ? "다른 풀이 닫기" : "다른 풀이 보기"}
           </button>
         )}
-        <button
-          type="button"
-          onClick={createPracticeProblem}
-          disabled={loading}
-          className="min-h-12 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:cursor-wait disabled:bg-indigo-300"
-        >
-          {loading ? "비슷한 문제 만드는 중…" : "비슷한 문제 풀기"}
-        </button>
+        {isMath && (
+          <button
+            type="button"
+            onClick={() => createPracticeProblem(false)}
+            disabled={loading}
+            className="min-h-12 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:cursor-wait disabled:bg-indigo-300"
+          >
+            {loading ? "비슷한 문제 만드는 중…" : "비슷한 문제 풀기"}
+          </button>
+        )}
       </div>
 
       {showAlternative && hasAlternative && (
@@ -106,13 +121,23 @@ export default function SolutionLearningActions({
             <summary className="cursor-pointer text-sm font-bold text-indigo-600">힌트 보기</summary>
             <p className="mt-2 text-sm leading-6 text-slate-600"><MathText>{practice.hint}</MathText></p>
           </details>
-          <button
-            type="button"
-            onClick={() => setShowPracticeAnswer((current) => !current)}
-            className="mt-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700"
-          >
-            {showPracticeAnswer ? "정답·풀이 닫기" : "정답·풀이 확인"}
-          </button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setShowPracticeAnswer((current) => !current)}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700"
+            >
+              {showPracticeAnswer ? "정답·풀이 닫기" : "정답·풀이 확인"}
+            </button>
+            <button
+              type="button"
+              onClick={() => createPracticeProblem(true)}
+              disabled={loading}
+              className="rounded-xl border border-indigo-200 bg-white px-4 py-3 text-sm font-bold text-indigo-600 disabled:cursor-wait disabled:text-indigo-300"
+            >
+              {loading ? "검증 중…" : "다른 문제 만들기"}
+            </button>
+          </div>
           {showPracticeAnswer && (
             <div className="mt-3 rounded-xl bg-white p-4 text-sm leading-7 text-slate-700">
               <p className="font-bold text-emerald-700">정답 · <MathText>{practice.answer}</MathText></p>

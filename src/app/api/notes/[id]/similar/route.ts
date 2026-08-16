@@ -2,7 +2,8 @@ import { after } from "next/server";
 import { NextResponse } from "next/server";
 import { analysisCacheKey, readAnalysisCache, writeAnalysisCache, type PracticeProblemCache } from "@/lib/ai-analysis-cache";
 import { finalizeAiUsage, reserveAiUsage, usageErrorMessage } from "@/lib/billing";
-import { getOpenAI, GPT_FAST_MODEL } from "@/lib/openai";
+import { getOpenAI, GPT_REASONING_MODEL } from "@/lib/openai";
+import { isMathClassification } from "@/lib/learning-action-policy";
 import { createClient } from "@/lib/supabase/server";
 
 const PRACTICE_SCHEMA = {
@@ -17,6 +18,23 @@ const PRACTICE_SCHEMA = {
   additionalProperties: false,
 } as const;
 
+const VERIFICATION_SCHEMA = {
+  type: "object",
+  properties: {
+    valid: { type: "boolean" },
+    concept_match: { type: "boolean" },
+    difficulty_match: { type: "boolean" },
+    self_contained: { type: "boolean" },
+    unique_answer: { type: "boolean" },
+    answer_consistent: { type: "boolean" },
+    final_answer: { type: "string", description: "독립 계산으로 확인한 최종 정답" },
+    final_solution: { type: "string", description: "독립 검산을 반영한 완전한 풀이" },
+    issues: { type: "array", items: { type: "string" } },
+  },
+  required: ["valid", "concept_match", "difficulty_match", "self_contained", "unique_answer", "answer_consistent", "final_answer", "final_solution", "issues"],
+  additionalProperties: false,
+} as const;
+
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
@@ -25,7 +43,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { data: note } = await supabase
     .from("notes")
-    .select("id, question, correct_answer, ai_details")
+    .select("id, subject_id, question, correct_answer, ai_details")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -34,13 +52,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const details = note.ai_details && typeof note.ai_details === "object" && !Array.isArray(note.ai_details)
     ? note.ai_details as Record<string, unknown>
     : {};
+  const { data: subject } = note.subject_id
+    ? await supabase.from("subjects").select("name").eq("id", note.subject_id).eq("user_id", user.id).maybeSingle()
+    : { data: null };
+  const isMath = isMathClassification([subject?.name, details.subject, details.curriculum]);
+  if (!isMath) return NextResponse.json({ error: "비슷한 문제 만들기는 현재 수학 과목에서만 사용할 수 있습니다." }, { status: 400 });
+
+  const body = await request.json().catch(() => ({})) as { variant?: unknown };
+  const variant = Number.isInteger(Number(body.variant))
+    ? Math.max(0, Math.min(20, Number(body.variant)))
+    : 0;
   const cacheKey = analysisCacheKey([
-    "similar_problem_v1",
+    "similar_math_problem_v3_reasoning_verified",
     user.id,
     id,
     note.question,
     note.correct_answer,
     JSON.stringify(details.coreConcepts ?? []),
+    String(variant),
   ]);
   const cached = await readAnalysisCache<PracticeProblemCache>(supabase, user.id, cacheKey);
   if (cached) return NextResponse.json({ practice: cached, cacheHit: true });
@@ -53,15 +82,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   try {
     const response = await getOpenAI().responses.create({
-      model: GPT_FAST_MODEL,
+      model: GPT_REASONING_MODEL,
+      reasoning: { effort: "medium" },
       input: [
         {
           role: "system",
-          content: "너는 Xonote 복습 문제 출제자다. 원문을 복사하지 말고 같은 핵심 개념과 비슷한 난이도의 새 문제를 만든다. 숫자·인물·상황을 바꾸되 풀이 가능성과 정답을 독립 검산한다. 외부 그림이나 표가 없어도 풀 수 있는 자기완결형 문제만 출제한다. 수식은 \\( ... \\) 또는 \\[ ... \\] LaTeX로 한 번만 표현한다.",
+          content: "너는 Xonote 수학 복습 문제 출제자다. 원문을 복사하지 말고 같은 핵심 개념과 비슷한 난이도의 새 문제를 만든다. 숫자·조건·상황을 바꾸되 교육과정 범위와 풀이 단계 수를 유지한다. 외부 그림이나 표가 없어도 풀 수 있는 자기완결형 문제만 출제한다. 모든 조건을 사용해 답이 하나로 정해지도록 하고, 분모 0·정의역·단위·보기와 정답의 일관성을 직접 검산한다. 수식은 \\( ... \\) 또는 \\[ ... \\] LaTeX로 한 번만 표현한다.",
         },
         {
           role: "user",
-          content: `원래 문제:\n${note.question}\n\n원래 정답:\n${note.correct_answer}\n\n핵심 개념:\n${JSON.stringify(details.coreConcepts ?? [])}\n난이도: ${String(details.difficulty ?? "원문과 유사")}`,
+          content: `변형 번호: ${variant}\n원래 문제:\n${note.question}\n\n원래 정답:\n${note.correct_answer}\n\n핵심 개념:\n${JSON.stringify(details.coreConcepts ?? [])}\n난이도: ${String(details.difficulty ?? "원문과 유사")}`,
         },
       ],
       text: {
@@ -75,19 +105,65 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }, { signal: request.signal });
     const practice = JSON.parse(response.output_text || "{}") as PracticeProblemCache;
     if (!practice.question || !practice.answer || !practice.solution) throw new Error("Incomplete practice problem");
+    if (practice.question.replace(/\s+/g, "") === String(note.question).replace(/\s+/g, "")) {
+      throw new Error("Generated problem duplicates source");
+    }
+
+    const verification = await getOpenAI().responses.create({
+      model: GPT_REASONING_MODEL,
+      reasoning: { effort: "medium" },
+      input: [
+        {
+          role: "system",
+          content: "너는 독립적인 수학 문제 검수자다. 출제 결과를 믿지 말고 문제를 처음부터 직접 풀어 검증한다. 핵심 개념 일치, 원문과 유사한 난이도, 조건 완결성, 유일한 정답, 제시 풀이와 정답의 일치를 각각 판정한다. 하나라도 실패하면 valid=false다. final_answer와 final_solution에는 네가 독립 계산한 결과만 쓴다.",
+        },
+        {
+          role: "user",
+          content: `원문 핵심 개념: ${JSON.stringify(details.coreConcepts ?? [])}\n원문 난이도: ${String(details.difficulty ?? "원문과 유사")}\n\n검수할 새 문제:\n${practice.question}\n\n제시 정답:\n${practice.answer}\n\n제시 풀이:\n${practice.solution}`,
+        },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "verified_math_practice_problem",
+          strict: true,
+          schema: VERIFICATION_SCHEMA,
+        },
+      },
+    }, { signal: request.signal });
+    const audit = JSON.parse(verification.output_text || "{}") as {
+      valid?: boolean;
+      concept_match?: boolean;
+      difficulty_match?: boolean;
+      self_contained?: boolean;
+      unique_answer?: boolean;
+      answer_consistent?: boolean;
+      final_answer?: string;
+      final_solution?: string;
+      issues?: string[];
+    };
+    const passed = audit.valid && audit.concept_match && audit.difficulty_match && audit.self_contained && audit.unique_answer && audit.answer_consistent;
+    if (!passed || !audit.final_answer || !audit.final_solution) {
+      throw new Error(`Math verification failed: ${(audit.issues ?? []).join("; ")}`);
+    }
+    const verifiedPractice: PracticeProblemCache = {
+      ...practice,
+      answer: audit.final_answer,
+      solution: audit.final_solution,
+    };
 
     after(() => Promise.all([
-      writeAnalysisCache(supabase, { userId: user.id, cacheKey, kind: "text_analysis", model: GPT_FAST_MODEL, result: practice }),
+      writeAnalysisCache(supabase, { userId: user.id, cacheKey, kind: "text_analysis", model: `${GPT_REASONING_MODEL}:generate+independent-audit`, result: verifiedPractice }),
       finalizeAiUsage({
         userId: user.id,
         requestKey: reservation.requestKey,
         succeeded: true,
-        inputTokens: response.usage?.input_tokens ?? 0,
-        outputTokens: response.usage?.output_tokens ?? 0,
+        inputTokens: (response.usage?.input_tokens ?? 0) + (verification.usage?.input_tokens ?? 0),
+        outputTokens: (response.usage?.output_tokens ?? 0) + (verification.usage?.output_tokens ?? 0),
         existingClient: supabase,
       }),
     ]));
-    return NextResponse.json({ practice, cacheHit: false });
+    return NextResponse.json({ practice: verifiedPractice, cacheHit: false, verified: true });
   } catch (error) {
     console.error("Similar problem generation failed:", error);
     after(() => finalizeAiUsage({

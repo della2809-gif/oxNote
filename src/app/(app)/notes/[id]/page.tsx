@@ -5,6 +5,7 @@ import QuestionWithVisuals from "@/components/QuestionWithVisuals";
 import SolutionLearningActions from "@/components/SolutionLearningActions";
 import { createClient } from "@/lib/supabase/server";
 import type { Note, NoteAiDetails, Subject } from "@/lib/types";
+import { isMathClassification } from "@/lib/learning-action-policy";
 import {
   deleteNote,
   updateNoteExtractedContent,
@@ -440,6 +441,7 @@ export default async function NoteDetailPage({
           <SolutionLearningActions
             noteId={typedNote.id}
             alternativeSolution={details?.alternativeSolution}
+            isMath={isMathClassification([subject?.name, details?.subject, details?.curriculum])}
           />
         </div>
       </section>

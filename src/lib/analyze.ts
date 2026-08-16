@@ -2,6 +2,8 @@ import {
   getOpenAI,
   GPT_FAST_MODEL,
   GPT_FILE_MODEL,
+  GPT_REASONING_MODEL,
+  OPENAI_REASONING_EFFORT,
   OPENAI_FILE_REASONING_EFFORT,
   OPENAI_FILE_VERBOSITY,
   OPENAI_IMAGE_DETAIL,
@@ -10,6 +12,7 @@ import {
   applyMathVerificationCorrections,
   verifyAndCorrectMathDetails,
 } from "./math-verifier";
+import { isLikelyMathProblem } from "./learning-action-policy";
 import type { NoteAiDetails } from "./types";
 
 export type TextAnalysisResult = {
@@ -117,13 +120,12 @@ const TEXT_TUTOR_INSTRUCTIONS = `너는 한국어 AI 오답 튜터다.
 - mistake_type은 '개념 이해 부족', '계산 실수', '문제 오독', '암기 부족'처럼 짧게 쓴다.
 - tags에는 실제 풀이에 필요한 핵심 개념만 넣고 개인정보나 확인할 수 없는 사실은 추측하지 않는다.`;
 
-const usesFileGpt5 = GPT_FILE_MODEL.startsWith("gpt-5");
 const usesFastGpt5 = GPT_FAST_MODEL.startsWith("gpt-5");
 
-function reasoningRequestOptions() {
-  return usesFileGpt5
+function reasoningRequestOptions(model = GPT_FILE_MODEL, effort = OPENAI_FILE_REASONING_EFFORT) {
+  return model.startsWith("gpt-5")
     ? {
-        reasoning: { effort: OPENAI_FILE_REASONING_EFFORT },
+        reasoning: { effort },
       }
     : {};
 }
@@ -405,9 +407,13 @@ export async function analyzeFromText({
   runtime?: AnalysisRuntimeOptions;
 }): Promise<TextAnalysisResult> {
   try {
+    const useMathReasoning = isLikelyMathProblem(subject, question);
+    const selectedModel = useMathReasoning ? GPT_REASONING_MODEL : GPT_FAST_MODEL;
     const stream = await getOpenAI().responses.create({
-      model: GPT_FAST_MODEL,
-      ...fastRequestOptions(),
+      model: selectedModel,
+      ...(useMathReasoning
+        ? reasoningRequestOptions(selectedModel, OPENAI_REASONING_EFFORT)
+        : fastRequestOptions()),
       input: [
         { role: "system", content: TEXT_TUTOR_INSTRUCTIONS },
         {
@@ -426,7 +432,9 @@ export async function analyzeFromText({
         },
       ],
       text: {
-        ...(usesFastGpt5 ? { verbosity: "low" as const } : {}),
+        ...(selectedModel.startsWith("gpt-5")
+          ? { verbosity: useMathReasoning ? "medium" as const : "low" as const }
+          : {}),
         format: {
           type: "json_schema",
           name: "mistake_analysis",
@@ -475,6 +483,7 @@ export async function analyzeFromFile({
   studentSolutionMimeType,
   studentSolutionFilename,
   runtime = {},
+  useAdvancedMathReasoning = false,
 }: {
   fileBase64: string;
   mimeType: string;
@@ -491,7 +500,12 @@ export async function analyzeFromFile({
   studentSolutionMimeType?: string;
   studentSolutionFilename?: string;
   runtime?: AnalysisRuntimeOptions;
+  useAdvancedMathReasoning?: boolean;
 }): Promise<FileAnalysisResult> {
+  const selectedModel = useAdvancedMathReasoning ? GPT_REASONING_MODEL : GPT_FILE_MODEL;
+  const selectedEffort = useAdvancedMathReasoning
+    ? OPENAI_REASONING_EFFORT
+    : OPENAI_FILE_REASONING_EFFORT;
   const fileContent =
     mimeType === "application/pdf"
       ? {
@@ -549,8 +563,8 @@ export async function analyzeFromFile({
     .join("\n");
 
   const stream = await getOpenAI().responses.create({
-    model: GPT_FILE_MODEL,
-    ...reasoningRequestOptions(),
+    model: selectedModel,
+    ...reasoningRequestOptions(selectedModel, selectedEffort),
     input: [
       { role: "system", content: TUTOR_INSTRUCTIONS },
       {
@@ -563,7 +577,9 @@ export async function analyzeFromFile({
       },
     ],
     text: {
-      ...(usesFileGpt5 ? { verbosity: OPENAI_FILE_VERBOSITY } : {}),
+      ...(selectedModel.startsWith("gpt-5")
+        ? { verbosity: useAdvancedMathReasoning ? "high" as const : OPENAI_FILE_VERBOSITY }
+        : {}),
       format: {
         type: "json_schema",
         name: "mistake_analysis_from_file",

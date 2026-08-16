@@ -178,6 +178,18 @@ export type NoteAiDetails = {
   confusionPoints: NoteConfusionPoint[];
   userConfusionSelections?: UserConfusionSelection[];
   mathVerification?: MathVerification;
+  reasoningAudit?: {
+    status: "passed" | "corrected" | "needs_review";
+    checks: {
+      conditionsUsed: boolean;
+      domainChecked: boolean;
+      arithmeticChecked: boolean;
+      uniqueAnswer: boolean;
+      choicesConsistent: boolean;
+    };
+    issues: string[];
+    model: string;
+  };
   inputArtifact?: HandwritingArtifact;
   problemRegion?: ProblemRegion;
   imageCleanup?: ImageCleanup;

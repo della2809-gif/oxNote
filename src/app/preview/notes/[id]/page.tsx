@@ -159,6 +159,7 @@ export default async function PreviewNoteDetailPage({ params }: { params: Promis
           <div className="mt-5">
             <SolutionLearningActions
               noteId="preview"
+              isMath={note.subject === "수학"}
               alternativeSolution={{
                 available: true,
                 title: "합동식으로 자연수 해 찾기",
