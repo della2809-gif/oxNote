@@ -18,8 +18,8 @@ export const GPT_REASONING_MODEL =
   process.env.OPENAI_REASONING_MODEL ||
   process.env.OPENAI_ANALYSIS_MODEL ||
   "gpt-5.6-sol";
-export const GPT_FILE_MODEL =
-  process.env.OPENAI_FILE_MODEL || "gpt-5.6-terra";
+// 운영 파일 분석은 검증된 A안(Terra)으로 고정한다.
+export const GPT_FILE_MODEL = "gpt-5.6-terra";
 
 // 기존 import와 배포 환경변수의 호환성을 유지한다.
 export const GPT_MODEL = GPT_FAST_MODEL;
