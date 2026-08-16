@@ -170,12 +170,20 @@ export type NoteAiDetails = {
   solutionSteps: NoteSolutionStep[];
   answerSummary: string;
   confusionPoints: NoteConfusionPoint[];
+  userConfusionSelections?: UserConfusionSelection[];
   mathVerification?: MathVerification;
   inputArtifact?: HandwritingArtifact;
   problemRegion?: ProblemRegion;
   imageCleanup?: ImageCleanup;
   visualAssets?: VisualAsset[];
   documentRecognition?: DocumentRecognition;
+};
+
+export type UserConfusionSelection = {
+  stageIndex: number;
+  stageKey: string;
+  title: string;
+  selectedAt: string;
 };
 
 export type Plan = {

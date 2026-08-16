@@ -36,6 +36,7 @@ function asDetails(value: unknown): NoteAiDetails | null {
     solutionSteps: details.solutionSteps,
     answerSummary: details.answerSummary ?? "",
     confusionPoints: Array.isArray(details.confusionPoints) ? details.confusionPoints : [],
+    userConfusionSelections: Array.isArray(details.userConfusionSelections) ? details.userConfusionSelections : [],
     mathVerification:
       details.mathVerification &&
       ["passed", "corrected", "needs_review", "not_applicable"].includes(
@@ -337,8 +338,8 @@ export default async function NoteDetailPage({
           </span>
         </div>
 
-        <div className="mt-6 grid gap-5 lg:grid-cols-2">
-          <article className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+        <div className="mt-6 grid gap-5">
+          <article className="hidden min-w-0 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5" aria-hidden="true">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-bold text-slate-500">학생 풀이</p>
@@ -440,22 +441,26 @@ export default async function NoteDetailPage({
         <section className="w-full min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-8">
           <p className="text-sm font-bold text-indigo-600">예상 혼동 지점</p>
           <h2 className="mt-3 break-keep text-xl font-bold sm:text-2xl">이 부분을 다시 확인해 보세요</h2>
-          {!typedNote.student_solution_file_url && !typedNote.my_answer && (
-            <div className="mt-6 rounded-2xl bg-amber-50 px-5 py-4 text-sm text-amber-800">
-              <strong>아직 학생 풀이가 없어요.</strong>
-              <p className="mt-1 text-xs leading-5">아래 내용은 이 문제에서 자주 헷갈리는 지점입니다. 다음 분석 때 학생 풀이도 함께 올리면 실제 오류 원인을 더 정확히 찾을 수 있어요.</p>
-            </div>
-          )}
+          <p className="mt-2 text-sm leading-6 text-slate-500">실제로 혼동이 생긴 단계를 선택해 주세요. 선택 기록은 이후 실수 통계와 학습 리포트에 활용됩니다.</p>
           <div className="mt-5 space-y-4">
             {details.confusionPoints.map((point, index) => (
-              <div key={`${point.title}-${index}`} className="grid gap-3 sm:grid-cols-[34px_1fr]">
+              <label key={`${point.title}-${index}`} className="grid cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4 transition hover:border-indigo-300 hover:bg-indigo-50/40 sm:grid-cols-[34px_1fr_auto]">
                 <span className="grid h-8 w-8 place-items-center rounded-xl bg-rose-50 text-xs font-bold text-rose-500">{index + 1}</span>
                 <div>
                   <p className="text-sm font-bold text-slate-800"><MathText>{point.title}</MathText></p>
                   <p className="mt-1 text-sm leading-6 text-slate-500"><MathText>{point.explanation}</MathText></p>
                   {point.correction && <p className="mt-1 text-sm font-semibold text-indigo-600">다음에는: <MathText>{point.correction}</MathText></p>}
                 </div>
-              </div>
+                <input
+                  type="checkbox"
+                  form="mistake-reason-form"
+                  name="confusionStage"
+                  value={String(index)}
+                  defaultChecked={details.userConfusionSelections?.some((selection) => selection.stageIndex === index)}
+                  className="mt-1 h-6 w-6 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  aria-label={`${index + 1}단계 ${point.title}에서 혼동함`}
+                />
+              </label>
             ))}
           </div>
         </section>

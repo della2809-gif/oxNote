@@ -369,9 +369,44 @@ export async function updateNoteMistakeReason(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const { data: existingNote, error: readError } = await supabase
+    .from("notes")
+    .select("ai_details")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (readError || !existingNote) {
+    redirect(`/notes/${id}?error=${encodeURIComponent("오답 기록을 불러오지 못했습니다. 다시 시도해 주세요.")}`);
+  }
+
+  const aiDetails = existingNote.ai_details && typeof existingNote.ai_details === "object" && !Array.isArray(existingNote.ai_details)
+    ? existingNote.ai_details as Record<string, unknown>
+    : {};
+  const confusionPoints = Array.isArray(aiDetails.confusionPoints)
+    ? aiDetails.confusionPoints as { title?: string }[]
+    : [];
+  const previousSelections = Array.isArray(aiDetails.userConfusionSelections)
+    ? aiDetails.userConfusionSelections as { stageIndex?: number; selectedAt?: string }[]
+    : [];
+  const selectedIndexes = Array.from(new Set(
+    formData.getAll("confusionStage")
+      .map((value) => Number(value))
+      .filter((value) => Number.isInteger(value) && value >= 0 && value < confusionPoints.length),
+  ));
+  const now = new Date().toISOString();
+  const userConfusionSelections = selectedIndexes.map((stageIndex) => ({
+    stageIndex,
+    stageKey: `confusion-${stageIndex + 1}`,
+    title: String(confusionPoints[stageIndex]?.title ?? `혼동 단계 ${stageIndex + 1}`),
+    selectedAt: previousSelections.find((selection) => selection.stageIndex === stageIndex)?.selectedAt ?? now,
+  }));
+
   const { data: updatedNote, error } = await supabase
     .from("notes")
-    .update({ user_mistake_reason: userMistakeReason || null })
+    .update({
+      user_mistake_reason: userMistakeReason || null,
+      ai_details: { ...aiDetails, userConfusionSelections },
+    })
     .eq("id", id)
     .eq("user_id", user.id)
     .select("id")

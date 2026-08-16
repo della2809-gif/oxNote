@@ -394,20 +394,12 @@ export default function NoteForm({
         </section>
       )}
 
-      <section className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:p-5">
+      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <div className="flex items-center gap-4">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-indigo-600 text-sm font-bold text-white">1</span>
           <div>
             <p className="text-sm font-bold text-slate-900">문제를 촬영하거나 사진 또는 PDF를 올려주세요</p>
             <p className="mt-1 text-xs text-slate-400">JPG·PNG·WEBP·PDF · 파일당 최대 15MB</p>
-          </div>
-        </div>
-        <span className="hidden text-xl font-light text-slate-300 sm:block">＋</span>
-        <div className="flex items-center gap-4">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-sm font-bold text-slate-500">2</span>
-          <div>
-            <p className="text-sm font-bold text-slate-900">학생 풀이를 추가하면 더 정확해요</p>
-            <p className="mt-1 text-xs text-slate-400">실제로 막힌 단계와 오류 지점까지 분석</p>
           </div>
         </div>
       </section>
@@ -525,7 +517,7 @@ export default function NoteForm({
           </div>
           )}
 
-          <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="hidden mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4" aria-hidden="true">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-bold text-slate-800">학생 풀이 사진·PDF</p>
