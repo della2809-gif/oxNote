@@ -38,6 +38,22 @@ export function recognitionDisposition(confidence: number) {
   return "retry_or_user_review" as const;
 }
 
+export function canUseRecognitionAsAuthoritative({
+  confidence,
+  needsReview,
+  correctedText,
+}: {
+  confidence: number;
+  needsReview: boolean;
+  correctedText: string;
+}) {
+  return (
+    recognitionDisposition(confidence) === "auto_accept" &&
+    !needsReview &&
+    !correctedText.includes("[판독 불확실]")
+  );
+}
+
 export function normalizeProcessingIssues(value: unknown): ProcessingIssue[] {
   const allowed = new Set<ProcessingIssue>([
     "text_ocr_error",

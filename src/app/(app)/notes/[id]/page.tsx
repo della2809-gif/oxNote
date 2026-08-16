@@ -198,7 +198,7 @@ export default async function NoteDetailPage({
           <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <p className="font-bold">⚠ 원본 확인이 필요한 부분이 있습니다.</p>
             <p className="mt-1 leading-6">
-              인식 신뢰도 {Math.round(details.documentRecognition.confidence * 100)}%
+              1차 OCR 신뢰도 {Math.round(details.documentRecognition.confidence * 100)}% · 원본 이미지 재검증 적용
               {details.documentRecognition.warnings.length > 0
                 ? ` · ${details.documentRecognition.warnings.slice(0, 2).join(" · ")}`
                 : " · 아래 문제 전문을 원본과 비교하고 필요한 부분만 수정해 주세요."}

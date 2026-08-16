@@ -441,7 +441,9 @@ export async function analyzeFromFile({
   myAnswerHint,
   correctAnswerHint,
   recognizedQuestionHint,
+  recognizedQuestionCandidate,
   recognizedLatex,
+  imageDetail = OPENAI_IMAGE_DETAIL,
   learningStatus,
   studentSolutionBase64,
   studentSolutionMimeType,
@@ -455,7 +457,9 @@ export async function analyzeFromFile({
   myAnswerHint: string;
   correctAnswerHint: string;
   recognizedQuestionHint?: string;
+  recognizedQuestionCandidate?: string;
   recognizedLatex?: string;
+  imageDetail?: "low" | "high" | "original";
   learningStatus: "incorrect" | "correct_review";
   studentSolutionBase64?: string;
   studentSolutionMimeType?: string;
@@ -472,7 +476,7 @@ export async function analyzeFromFile({
       : {
            type: "input_image" as const,
            image_url: `data:${mimeType};base64,${fileBase64}`,
-           detail: OPENAI_IMAGE_DETAIL,
+           detail: imageDetail,
         };
 
   const studentSolutionContent =
@@ -494,12 +498,18 @@ export async function analyzeFromFile({
     recognizedQuestionHint
       ? `OCR 검증 단계에서 원본과 비교해 확정했거나 사용자가 직접 확인한 문제 전문: ${recognizedQuestionHint}. 이 전문을 문제의 기준으로 사용하고, 풀이 단계에서 문제 문구·수치·기호·선택지를 임의로 고치지 마세요.`
       : null,
+    recognizedQuestionCandidate
+      ? `1차 OCR이 만든 낮은 신뢰도의 판독 후보(확정본 아님): ${recognizedQuestionCandidate}. 이 문자열을 그대로 복사하거나 정답처럼 신뢰하지 마세요. 원본 이미지를 다시 확대 판독하여 지수·분수선·부호·괄호·빈칸·선택지를 하나씩 대조하세요. 계산 관계와 선택지의 일관성은 판독 검증에만 사용하고, 유일하게 확정되는 경우에만 question을 교정하세요. 끝까지 불명확하면 [판독 불확실]을 남기세요.`
+      : null,
     recognizedLatex
       ? `손글씨에서 인식하고 사용자가 확인한 수식 LaTeX: ${recognizedLatex}. 문제 전문과 원본 이미지가 충돌하면 사용자가 확인한 내용을 우선하세요.`
       : null,
     subject ? `과목: ${subject}` : null,
     "첨부된 이미지 또는 PDF를 원본으로 보고 문제를 정확히 판독한 뒤, 문제를 독립적으로 처음부터 풀어줘. 단, question에는 원본 문제를 요약하거나 풀이하지 말고 문제 번호·지시문·말풍선·표·보기를 원래 순서와 구조 그대로 전사해줘.",
     "인쇄된 문제 조건과 학생 필기·채점 표시를 분리하고, recognized_conditions에서 모든 수치와 단위를 먼저 점검해줘.",
+    recognizedQuestionCandidate
+      ? "낮은 신뢰도 OCR 재검증 순서: 원본 시각 판독 → 수식 구조 복원 → 선택지와 독립 계산으로 모순 검사 → 최종 문제 전문 확정. OCR 후보와 원본이 다르면 원본 및 수학적으로 일관된 판독을 우선해."
+      : null,
     learningStatus === "correct_review"
       ? "문제 상태는 '맞았지만 복습'이야. 학생이 틀렸다고 표현하지 말고, 정답에 도달한 과정을 점검하면서 핵심 개념과 다시 확인할 지점을 정리해줘."
       : "문제 상태는 '틀린 문제'야. 학생 답과 정답의 차이를 근거로 실제 오답 원인을 분석해줘.",

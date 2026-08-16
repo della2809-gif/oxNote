@@ -53,11 +53,22 @@ function pdfSourceKind(input: Buffer): DocumentRecognition["sourceKind"] {
 }
 
 async function preprocessImage(input: Buffer) {
-  return sharp(input, { failOn: "none", limitInputPixels: 45_000_000 })
+  const { data, info } = await sharp(input, { failOn: "none", limitInputPixels: 45_000_000 })
     .rotate()
     .flatten({ background: "#ffffff" })
-    .resize({ width: 2400, height: 2400, fit: "inside", withoutEnlargement: true })
-    .greyscale()
+    .removeAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  // 빨간/파란 채점선은 한 채널에만 진하게 남는 경우가 많다. RGB 최댓값을
+  // 사용하면 컬러 필기는 옅어지고 모든 채널이 어두운 인쇄 글자는 보존된다.
+  const deMarked = Buffer.alloc(info.width * info.height);
+  for (let source = 0, target = 0; target < deMarked.length; source += info.channels, target += 1) {
+    deMarked[target] = Math.max(data[source], data[source + 1], data[source + 2]);
+  }
+
+  return sharp(deMarked, { raw: { width: info.width, height: info.height, channels: 1 } })
+    .resize({ width: 2400, height: 2400, fit: "inside", withoutEnlargement: false })
     .normalise({ lower: 1, upper: 99 })
     .sharpen({ sigma: 0.45 })
     .webp({ quality: 92, effort: 3 })

@@ -7,6 +7,7 @@ import { analysisCacheKey, readAnalysisCache, writeAnalysisCache } from "./ai-an
 import { createAiPerformanceTracker } from "./ai-performance";
 import { cleanProblemImage, cropVisualAsset } from "./problem-image-cleanup";
 import { recognizeAndVerifyDocument } from "./document-recognition";
+import { canUseRecognitionAsAuthoritative } from "./ocr-policy";
 import {
   finalizeAiUsage,
   getMonthlyUploadedBytes,
@@ -14,7 +15,7 @@ import {
   reserveAiUsage,
   usageErrorMessage,
 } from "./billing";
-import { GPT_FILE_MODEL } from "./openai";
+import { GPT_FILE_MODEL, OPENAI_IMAGE_DETAIL } from "./openai";
 import { initialReviewDate } from "./spaced-repetition";
 import type { DocumentRecognition, HandwritingArtifact, HandwritingPoint, HandwritingStroke } from "./types";
 
@@ -272,7 +273,7 @@ export async function createFileNote({
   const fileBase64 = Buffer.from(arrayBuffer).toString("base64");
   const solutionBase64 = solutionArrayBuffer ? Buffer.from(solutionArrayBuffer).toString("base64") : undefined;
   const cacheKey = analysisCacheKey([
-    "file_analysis_v9_verified_ocr",
+    "file_analysis_v10_adaptive_ocr",
     user.id,
     uploadedFile.type,
     fileBase64,
@@ -347,6 +348,13 @@ export async function createFileNote({
       }
 
       onProgress?.({ stage: "analyzing", message: "확정된 문제 전문을 기준으로 풀이를 만들고 있어요." });
+      const recognitionIsAuthoritative = documentRecognition
+        ? canUseRecognitionAsAuthoritative(documentRecognition)
+        : false;
+      const trustedQuestionHint = recognizedQuestionHint || (recognitionIsAuthoritative ? documentRecognition?.correctedText : undefined);
+      const untrustedQuestionCandidate = !recognizedQuestionHint && documentRecognition && !recognitionIsAuthoritative
+        ? documentRecognition.correctedText
+        : undefined;
       const openAiStartedAt = performance.now();
       analyzed = await analyzeFromFile({
         fileBase64,
@@ -355,8 +363,10 @@ export async function createFileNote({
         subject: subjectName,
         myAnswerHint,
         correctAnswerHint,
-        recognizedQuestionHint: recognizedQuestionHint || documentRecognition?.correctedText,
+        recognizedQuestionHint: trustedQuestionHint,
+        recognizedQuestionCandidate: untrustedQuestionCandidate,
         recognizedLatex,
+        imageDetail: untrustedQuestionCandidate && uploadedFile.type !== "application/pdf" ? "original" : OPENAI_IMAGE_DETAIL,
         learningStatus,
         studentSolutionBase64: solutionBase64,
         studentSolutionMimeType: uploadedSolution?.type,
