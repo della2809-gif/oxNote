@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import MathText from "@/components/MathText";
 import QuestionWithVisuals from "@/components/QuestionWithVisuals";
+import SolutionLearningActions from "@/components/SolutionLearningActions";
 import { createClient } from "@/lib/supabase/server";
 import type { Note, NoteAiDetails, Subject } from "@/lib/types";
 import {
@@ -34,6 +35,7 @@ function asDetails(value: unknown): NoteAiDetails | null {
     gradeRationale: details.gradeRationale ?? "",
     difficultyRationale: details.difficultyRationale ?? "",
     solutionSteps: details.solutionSteps,
+    alternativeSolution: details.alternativeSolution,
     answerSummary: details.answerSummary ?? "",
     confusionPoints: Array.isArray(details.confusionPoints) ? details.confusionPoints : [],
     userConfusionSelections: Array.isArray(details.userConfusionSelections) ? details.userConfusionSelections : [],
@@ -434,6 +436,11 @@ export default async function NoteDetailPage({
               </div>
             </div>
           </article>
+
+          <SolutionLearningActions
+            noteId={typedNote.id}
+            alternativeSolution={details?.alternativeSolution}
+          />
         </div>
       </section>
 

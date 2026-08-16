@@ -78,6 +78,7 @@ const TUTOR_INSTRUCTIONS = `너는 모든 시험 분야를 다루는 한국어 A
 - question에는 조건과 질문을 포함한 문제 전문을 복원한다.
 - 모든 문제는 다음 기본 순서를 우선한다: '문제에서 주어진 조건 확인 → 사용할 핵심 개념·원리 선택 → 조건을 식·관계·근거로 변환 → 순서대로 해결 → 정답과 조건 검산'. 문제 유형에 맞지 않는 단계는 억지로 만들지 않되, 결론만 제시하거나 정답을 다시 말하는 것으로 풀이를 대신하지 않는다.
 - solution_steps의 첫 단계에는 왜 그 접근을 선택하는지 적고, 각 다음 단계는 직전 단계에서 자연스럽게 이어지게 작성한다. 설명에는 이유를, formula에는 실제 적용식·판단 근거·중간값을 적어 둘 중 하나만 읽어도 풀이의 핵심이 빠지지 않게 한다.
+- 기본 풀이와 접근 원리가 명확히 다른 풀이가 실제로 있을 때만 alternative_solution.available=true로 반환한다. 식의 순서나 문장만 바꾼 풀이는 다른 풀이가 아니다. 다른 풀이가 없거나 기본 풀이만으로 복습이 충분하면 false와 빈 문자열·빈 steps를 반환한다.
 - 변수는 문제에 나온 대상과 관계가 바로 드러나는 문자로 최소한만 정의한다. 원래 문제의 점·도형·사람·수량 이름을 우선 사용하고, 풀이를 불필요하게 복잡하게 만드는 추상 치환은 피한다.
 - 객관식도 선택지나 표시된 정답에서 역으로 끼워 맞추지 않고 문제를 독립적으로 푼 뒤 선택지와 대조한다. 필요할 때만 선택지 대입·소거를 정식 풀이 전략으로 사용하고 그 이유를 밝힌다.
 - 국어·영어·사회·과학 등 비계산 문제도 지문이나 자료의 핵심 근거를 먼저 특정하고, 선택지별 판단이 필요한 경우 맞음·틀림의 근거를 간결하게 비교한 뒤 결론을 낸다. 원문에 없는 사실이나 배경지식을 근거처럼 만들어내지 않는다.
@@ -314,6 +315,30 @@ const FILE_ANALYSIS_SCHEMA = {
           description:
             "순서대로 따라가는 3~8개의 완전한 정답 풀이 단계. 사용 공식, 조건 변환, 각 대상의 계산, 비교·결론과 검산을 생략하지 않음",
         },
+        alternative_solution: {
+          type: "object",
+          properties: {
+            available: { type: "boolean", description: "기본 풀이와 접근 원리가 다른 유효한 풀이가 있는지" },
+            title: { type: "string", description: "다른 풀이의 핵심 접근법. 없으면 빈 문자열" },
+            explanation: { type: "string", description: "기본 풀이와 무엇이 다른지 짧은 설명. 없으면 빈 문자열" },
+            steps: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  title: { type: "string" },
+                  explanation: { type: "string" },
+                  formula: { type: "string" },
+                },
+                required: ["title", "explanation", "formula"],
+                additionalProperties: false,
+              },
+              description: "다른 풀이가 있을 때 2~6단계, 없으면 빈 배열",
+            },
+          },
+          required: ["available", "title", "explanation", "steps"],
+          additionalProperties: false,
+        },
         answer_summary: { type: "string", description: "최종 정답과 결론" },
         confusion_points: {
           type: "array",
@@ -345,6 +370,7 @@ const FILE_ANALYSIS_SCHEMA = {
         "grade_rationale",
         "difficulty_rationale",
         "solution_steps",
+        "alternative_solution",
         "answer_summary",
         "confusion_points",
       ],
@@ -585,6 +611,21 @@ export async function analyzeFromFile({
       }),
     ),
   });
+  const alternative = details.alternative_solution;
+  const alternativeSolution = alternative?.available && Array.isArray(alternative.steps) && alternative.steps.length > 0
+    ? {
+        available: true,
+        title: String(alternative.title ?? "다른 접근으로 풀기"),
+        explanation: String(alternative.explanation ?? ""),
+        steps: alternative.steps.slice(0, 6).map(
+          (step: { title?: string; explanation?: string; formula?: string }) => ({
+            title: String(step.title ?? ""),
+            explanation: String(step.explanation ?? ""),
+            formula: String(step.formula ?? ""),
+          }),
+        ),
+      }
+    : { available: false, title: "", explanation: "", steps: [] };
   const region = details.problem_region;
   const problemRegion = region && [region.x, region.y, region.width, region.height].every(Number.isFinite)
     ? {
@@ -624,7 +665,7 @@ export async function analyzeFromFile({
     analysis: parsed.analysis ?? "",
     mistakeType: parsed.mistake_type ?? "",
     tags: parsed.tags ?? [],
-    details: { ...verifiedDetails, problemRegion, visualAssets },
+    details: { ...verifiedDetails, alternativeSolution, problemRegion, visualAssets },
     succeeded: true,
     usage: streamed.usage,
   };

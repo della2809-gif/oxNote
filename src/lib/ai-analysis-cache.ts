@@ -5,7 +5,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FileAnalysisResult, TextAnalysisResult } from "./analyze";
 import { AI_ANALYSIS_VERSION } from "./openai";
 
-type CachedAnalysis = FileAnalysisResult | TextAnalysisResult;
+export type PracticeProblemCache = {
+  question: string;
+  hint: string;
+  answer: string;
+  solution: string;
+};
+
+type CachedAnalysis = FileAnalysisResult | TextAnalysisResult | PracticeProblemCache;
 
 export function analysisCacheKey(parts: Array<string | null | undefined>) {
   const hash = createHash("sha256");
@@ -20,12 +27,18 @@ export function analysisCacheKey(parts: Array<string | null | undefined>) {
 function isCachedAnalysis(value: unknown): value is CachedAnalysis {
   if (!value || typeof value !== "object") return false;
   const record = value as Record<string, unknown>;
-  return (
+  const isAnalysis = (
     typeof record.analysis === "string" &&
     typeof record.mistakeType === "string" &&
     Array.isArray(record.tags) &&
     typeof record.succeeded === "boolean"
   );
+  const isPractice =
+    typeof record.question === "string" &&
+    typeof record.hint === "string" &&
+    typeof record.answer === "string" &&
+    typeof record.solution === "string";
+  return isAnalysis || isPractice;
 }
 
 export async function readAnalysisCache<T extends CachedAnalysis>(
@@ -80,4 +93,3 @@ export async function writeAnalysisCache(
     console.error("writeAnalysisCache failed:", error);
   }
 }
-

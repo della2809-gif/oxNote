@@ -168,6 +168,12 @@ export type NoteAiDetails = {
   gradeRationale?: string;
   difficultyRationale?: string;
   solutionSteps: NoteSolutionStep[];
+  alternativeSolution?: {
+    available: boolean;
+    title: string;
+    explanation: string;
+    steps: NoteSolutionStep[];
+  };
   answerSummary: string;
   confusionPoints: NoteConfusionPoint[];
   userConfusionSelections?: UserConfusionSelection[];

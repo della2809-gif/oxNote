@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import SolutionLearningActions from "@/components/SolutionLearningActions";
 
 // 보류 기능: 실제 상세 화면과 동일하게 학습 분석 영역을 잠시 숨깁니다.
 const SHOW_LEARNING_ANALYSIS = false;
@@ -154,6 +155,39 @@ export default async function PreviewNoteDetailPage({ params }: { params: Promis
                 ))}
               </div>
             </div>
+          </div>
+          <div className="mt-5">
+            <SolutionLearningActions
+              noteId="preview"
+              alternativeSolution={{
+                available: true,
+                title: "합동식으로 자연수 해 찾기",
+                explanation: "기본 풀이의 대입 확인 대신 나머지 조건을 먼저 사용해 가능한 값을 빠르게 좁힙니다.",
+                steps: [
+                  {
+                    title: "짝수 조건 확인",
+                    explanation: "식에서 x가 자연수가 되려면 20-3y가 양의 짝수여야 합니다.",
+                    formula: "\\(20-3y>0\\), \\(20-3y\\)는 짝수",
+                  },
+                  {
+                    title: "y의 범위 좁히기",
+                    explanation: "y는 6 이하의 짝수이므로 2, 4, 6만 확인합니다.",
+                    formula: "\\(y\\in\\{2,4,6\\}\\)",
+                  },
+                  {
+                    title: "순서쌍 완성",
+                    explanation: "각 값을 대입하면 자연수 순서쌍 세 개를 얻습니다.",
+                    formula: "\\((x,y)=(7,2),(4,4),(1,6)\\)",
+                  },
+                ],
+              }}
+              previewPractice={{
+                question: "자연수 \\(x,y\\)가 \\(3x+2y=24\\)를 만족할 때, 순서쌍 \\((x,y)\\)의 개수를 구하여라.",
+                hint: "\\(y\\)의 범위와 \\(24-2y\\)가 3의 배수가 되는 조건을 함께 확인해 보세요.",
+                answer: "3개",
+                solution: "\\(3x=24-2y\\)이므로 \\(y=3,6,9\\)일 때 각각 \\(x=6,4,2\\)가 됩니다. 따라서 순서쌍은 3개입니다.",
+              }}
+            />
           </div>
         </section>
 
