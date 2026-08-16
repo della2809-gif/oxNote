@@ -156,6 +156,7 @@ export type DocumentRecognition = {
 };
 
 export type NoteAiDetails = {
+  evaluationMode?: "a" | "b";
   title: string;
   subject: string;
   gradeLevel: string;

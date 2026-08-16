@@ -231,6 +231,10 @@ export async function createFileNote({
   const handwritingArtifact = readHandwritingArtifact(formData);
   const recognizedQuestionHint = handwritingArtifact?.recognizedText ?? "";
   const recognizedLatex = handwritingArtifact?.recognizedLatex ?? "";
+  const requestedEvaluationMode = String(formData.get("evaluationMode") ?? "").toLowerCase();
+  const evaluationMode = user.app_metadata?.role === "admin" && ["a", "b"].includes(requestedEvaluationMode)
+    ? requestedEvaluationMode as "a" | "b"
+    : undefined;
   const learningStatus = readLearningStatus(formData);
   const uploadedFile =
     selectedFile instanceof File && selectedFile.size > 0
@@ -287,6 +291,7 @@ export async function createFileNote({
     learningStatus,
     recognizedQuestionHint,
     recognizedLatex,
+    evaluationMode,
   ]);
 
   onProgress?.({ stage: "cache", message: "같은 문제의 기존 분석을 확인하고 있어요." });
@@ -357,10 +362,11 @@ export async function createFileNote({
       const untrustedQuestionCandidate = !recognizedQuestionHint && documentRecognition && !recognitionIsAuthoritative
         ? documentRecognition.correctedText
         : undefined;
-      const useAdvancedMathReasoning = isLikelyMathProblem(
+      const detectedAsMath = isLikelyMathProblem(
         subjectName,
         [trustedQuestionHint, untrustedQuestionCandidate, recognizedLatex].filter(Boolean).join("\n"),
       );
+      const useAdvancedMathReasoning = detectedAsMath && evaluationMode !== "a";
       const openAiStartedAt = performance.now();
       analyzed = await analyzeFromFile({
         fileBase64,
@@ -439,6 +445,7 @@ export async function createFileNote({
         },
         details: {
           ...analyzed.details,
+          ...(evaluationMode ? { evaluationMode } : {}),
           ...(documentRecognition ? { documentRecognition } : {}),
         },
       };

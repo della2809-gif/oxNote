@@ -101,9 +101,11 @@ function StreamingSubmitButton({ ready, pending }: { ready: boolean; pending: bo
 export default function NoteForm({
   subjects,
   error,
+  evaluationMode,
 }: {
   subjects: Subject[];
   error?: string;
+  evaluationMode?: "a" | "b";
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<"file" | "manual" | "pen">("file");
@@ -306,6 +308,13 @@ export default function NoteForm({
       className="space-y-5"
       onSubmit={submitFileAnalysis}
     >
+      {evaluationMode && <input type="hidden" name="evaluationMode" value={evaluationMode} />}
+      {evaluationMode && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <strong>운영자 A/B 테스트 · {evaluationMode.toUpperCase()}안</strong>
+          <span className="ml-2">{evaluationMode === "a" ? "Terra 분석 + 계산기 검산" : "Sol 분석 + Sol 독립 검산 + 계산기 검산"}</span>
+        </div>
+      )}
       <input
         type="hidden"
         name="subjectName"
