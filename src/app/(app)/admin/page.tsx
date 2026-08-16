@@ -318,7 +318,6 @@ export default async function AdminPage({
             <AdminNav href="#billing" icon="₩" label="구독·결제" />
             <AdminNav href="#ai-operations" icon="✦" label="AI 운영" />
             <AdminNav href="/admin/performance" icon="↗" label="성적·비교 분석" />
-            <AdminNav href="/admin/ai-evaluation" icon="AB" label="AI A/B 평가" />
             <AdminNav href="#support-inquiries" icon="?" label="이용문의" />
             <AdminNav href="#requests" icon="◫" label="삭제 요청" />
           </nav>

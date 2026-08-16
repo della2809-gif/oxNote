@@ -7,15 +7,11 @@ export const maxDuration = 300;
 export default async function NewNotePage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; evaluationMode?: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
-  const { error, evaluationMode } = await searchParams;
+  const { error } = await searchParams;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
   const { data: subjects } = await supabase.from("subjects").select("id, name, color").order("name");
-  const adminEvaluationMode = user?.app_metadata?.role === "admin" && ["a", "b"].includes(String(evaluationMode))
-    ? String(evaluationMode) as "a" | "b"
-    : undefined;
 
   return (
     <div className="mx-auto max-w-6xl space-y-7">
@@ -30,7 +26,7 @@ export default async function NewNotePage({
         </p>
       </div>
 
-      <NoteForm subjects={(subjects as Subject[] | null) ?? []} error={error} evaluationMode={adminEvaluationMode} />
+      <NoteForm subjects={(subjects as Subject[] | null) ?? []} error={error} />
     </div>
   );
 }
