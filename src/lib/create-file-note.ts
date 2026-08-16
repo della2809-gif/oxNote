@@ -8,7 +8,6 @@ import { createAiPerformanceTracker } from "./ai-performance";
 import { cleanProblemImage, cropVisualAsset } from "./problem-image-cleanup";
 import { recognizeAndVerifyDocument } from "./document-recognition";
 import { canUseRecognitionAsAuthoritative } from "./ocr-policy";
-import { isLikelyMathProblem } from "./learning-action-policy";
 import { auditMathAnalysis } from "./math-reasoning-audit";
 import {
   finalizeAiUsage,
@@ -275,7 +274,7 @@ export async function createFileNote({
   const fileBase64 = Buffer.from(arrayBuffer).toString("base64");
   const solutionBase64 = solutionArrayBuffer ? Buffer.from(solutionArrayBuffer).toString("base64") : undefined;
   const cacheKey = analysisCacheKey([
-    "file_analysis_v12_reasoning_audit",
+    "file_analysis_v13_terra",
     user.id,
     uploadedFile.type,
     fileBase64,
@@ -357,10 +356,9 @@ export async function createFileNote({
       const untrustedQuestionCandidate = !recognizedQuestionHint && documentRecognition && !recognitionIsAuthoritative
         ? documentRecognition.correctedText
         : undefined;
-      const useAdvancedMathReasoning = isLikelyMathProblem(
-        subjectName,
-        [trustedQuestionHint, untrustedQuestionCandidate, recognizedLatex].filter(Boolean).join("\n"),
-      );
+      // 운영 기본안(A): Terra 단일 분석 + 기존 결정론적 수학 검산.
+      // Sol 독립 감사는 운영 경로에서 호출하지 않는다.
+      const useAdvancedMathReasoning = false;
       const openAiStartedAt = performance.now();
       analyzed = await analyzeFromFile({
         fileBase64,
