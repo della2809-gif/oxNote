@@ -48,3 +48,6 @@ next-env.d.ts
 .mcp.json
 .vscode/
 .local-*.log
+
+# local model benchmark data and API results
+/evals/
