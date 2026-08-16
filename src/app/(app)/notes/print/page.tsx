@@ -117,6 +117,36 @@ function QuestionTranscript({ value, visuals = [] }: { value: string; visuals?: 
   while (index < lines.length) {
     const line = lines[index];
     const next = lines[index + 1] ?? "";
+
+    // Keep display-math delimiters and their contents together. Rendering the
+    // transcript one physical line at a time separates `\[` from `\]`, which
+    // makes KaTeX commands appear as raw text in print/PDF output.
+    if (line.includes("\\[")) {
+      const mathLines = [line];
+      while (!mathLines[mathLines.length - 1].includes("\\]") && index + 1 < lines.length) {
+        index += 1;
+        mathLines.push(lines[index]);
+      }
+      content.push(<div key={`math-block-${index}`}><MathText>{mathLines.join("\n")}</MathText></div>);
+      index += 1;
+      continue;
+    }
+
+    if (line.includes("$$")) {
+      const delimiterCount = (line.match(/\$\$/g) ?? []).length;
+      const mathLines = [line];
+      if (delimiterCount % 2 === 1) {
+        while (index + 1 < lines.length) {
+          index += 1;
+          mathLines.push(lines[index]);
+          if (lines[index].includes("$$")) break;
+        }
+      }
+      content.push(<div key={`dollar-math-block-${index}`}><MathText>{mathLines.join("\n")}</MathText></div>);
+      index += 1;
+      continue;
+    }
+
     if (line.includes("|") && /^\s*\|?\s*:?-{3,}/.test(next)) {
       const rows: string[][] = [];
       const headers = line.split("|").map((cell) => cell.trim()).filter(Boolean);
