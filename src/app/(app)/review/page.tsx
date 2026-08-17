@@ -202,11 +202,13 @@ export default async function ReviewPage({
 
               <form action={submitReview} className="mt-4 flex gap-2">
                 <input type="hidden" name="id" value={note.id} />
-                <button type="submit" name="result" value="correct" className="flex-1 rounded-lg bg-green-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-green-500">
-                  맞았어요 · 보관
+                <button type="submit" name="result" value="correct" className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-bold text-white hover:bg-blue-500">
+                  <span aria-hidden="true" className="text-xl font-black leading-none">O</span>
+                  <span>맞았어요</span>
                 </button>
-                <button type="submit" name="result" value="incorrect" className="flex-1 rounded-lg bg-red-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-red-500">
-                  틀렸어요 · 다시 예약
+                <button type="submit" name="result" value="incorrect" className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 px-3 py-2.5 text-sm font-bold text-white hover:bg-red-500">
+                  <span aria-hidden="true" className="text-xl font-black leading-none">X</span>
+                  <span>틀렸어요</span>
                 </button>
               </form>
             </li>
