@@ -412,7 +412,7 @@ export default async function NoteDetailPage({
               <div className="mt-4 divide-y divide-emerald-100">
                 {details.solutionSteps.map((step, index) => (
                   <div key={`${step.title}-${index}`} className="grid gap-3 py-4 sm:grid-cols-[36px_1fr]">
-                    <span className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-500 text-xs font-bold text-white">{index + 1}</span>
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-500 text-sm font-bold text-white">{index + 1}</span>
                     <div>
                       <p className="text-xs font-bold text-emerald-700">{step.title}</p>
                       <p className="mt-1.5 text-sm font-semibold leading-6 text-slate-800"><MathText>{step.explanation}</MathText></p>
