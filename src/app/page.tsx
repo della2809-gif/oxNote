@@ -55,7 +55,12 @@ export default function Home() {
           ))}
         </div>
         <div className="mt-10 flex justify-center gap-4 text-xs text-neutral-500">
-          <Link href="/settings?panel=support" className="underline">이용문의</Link>
+          <a
+            href="mailto:support@xonote.com?subject=%5BXonote%20%EC%9D%B4%EC%9A%A9%EB%AC%B8%EC%9D%98%5D"
+            className="underline"
+          >
+            이용문의
+          </a>
           <Link href="/terms" className="underline">이용약관</Link>
           <Link href="/privacy" className="underline">개인정보 처리방침</Link>
         </div>
