@@ -28,10 +28,16 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  const { data: claimsData, error: claimsError } =
-    await supabase.auth.getClaims();
-  const isAuthenticated =
-    !claimsError && Boolean(claimsData?.claims.sub);
+  // Keep the proxy's authentication decision aligned with protected Server
+  // Components, which validate the current user with getUser(). A locally
+  // valid JWT can outlive a revoked/deleted user session; treating its claims
+  // as authenticated here sends the browser to /dashboard, while the app
+  // layout sends it back to /login and creates an infinite redirect loop.
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  const isAuthenticated = !userError && Boolean(user);
 
   function redirectWithRefreshedCookies(url: URL) {
     const redirectResponse = NextResponse.redirect(url);
