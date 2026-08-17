@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { canExportLearningData } from "@/lib/data-export-access";
 import {
   createFamilyInvitation,
   removeChildConnection,
@@ -72,7 +71,6 @@ export default async function SettingsPage({
       .maybeSingle(),
     supabase.from("plans").select("id, name").eq("is_active", true),
   ]);
-  const exportAllowed = canExportLearningData(subscription);
   const currentPlan =
     plans?.find((plan) => plan.id === subscription?.plan_id) ??
     plans?.find((plan) => plan.id === "free");
@@ -257,30 +255,10 @@ export default async function SettingsPage({
           </div>
         </dl>
         <div className="mt-5 flex flex-wrap gap-3">
-          {exportAllowed ? (
-            <a
-              href="/api/account/export"
-              className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900"
-            >
-              내 학습 데이터 내려받기
-            </a>
-          ) : (
-            <span
-              aria-disabled="true"
-              className="cursor-not-allowed rounded-md border border-neutral-200 bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-400 dark:border-neutral-800 dark:bg-neutral-900"
-            >
-              내 학습 데이터 내려받기 · 승인 필요
-            </span>
-          )}
           <Link href="/billing" className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium">
             요금제 관리
           </Link>
         </div>
-        {!exportAllowed && (
-          <p className="mt-3 text-xs leading-5 text-amber-700 dark:text-amber-300">
-            유료 이용 신청과 결제 확인 후 운영자가 권한을 승인하면 내려받을 수 있습니다.
-          </p>
-        )}
       </section>
 
       <section className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
