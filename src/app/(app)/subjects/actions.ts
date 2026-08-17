@@ -3,15 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { Subject } from "@/lib/types";
-
-const SUBJECT_COLORS = [
-  "#6366f1", "#ec4899", "#22c55e", "#f59e0b", "#06b6d4", "#a855f7", "#ef4444",
-];
-
-function subjectColor(name: string) {
-  const hash = Array.from(name).reduce((sum, character) => sum + character.charCodeAt(0), 0);
-  return SUBJECT_COLORS[hash % SUBJECT_COLORS.length];
-}
+import { nextSubjectColor } from "@/lib/subject-color-palette";
 
 export async function createSubject(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -23,7 +15,7 @@ export async function createSubject(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  const color = subjectColor(name);
+  const color = await nextSubjectColor(supabase, user.id);
 
   await supabase.from("subjects").insert({ user_id: user.id, name, color });
   revalidatePath("/subjects");
@@ -55,7 +47,7 @@ export async function createSubjectInline(
 
   const { data, error } = await supabase
     .from("subjects")
-    .insert({ user_id: user.id, name, color: subjectColor(name) })
+    .insert({ user_id: user.id, name, color: await nextSubjectColor(supabase, user.id) })
     .select("id, user_id, name, color, created_at")
     .single();
 

@@ -18,11 +18,11 @@ import {
 } from "./billing";
 import { GPT_FILE_MODEL, GPT_REASONING_MODEL, OPENAI_IMAGE_DETAIL } from "./openai";
 import { initialReviewDate } from "./spaced-repetition";
+import { nextSubjectColor } from "./subject-color-palette";
 import type { DocumentRecognition, HandwritingArtifact, HandwritingPoint, HandwritingStroke } from "./types";
 
 const ACCEPTED_FILE_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
-const SUBJECT_COLORS = ["#6366f1", "#ec4899", "#22c55e", "#f59e0b", "#06b6d4", "#a855f7", "#ef4444"];
 
 export type FileNoteProgress = {
   stage: "preparing" | "cache" | "analyzing" | "recognizing" | "solving" | "saving" | "complete";
@@ -122,11 +122,6 @@ function normalizeAiSubject(rawSubject: string) {
   return commonSubjects.find((subject) => normalized.includes(subject)) ?? normalized;
 }
 
-function subjectColor(name: string) {
-  const hash = Array.from(name).reduce((sum, character) => sum + character.charCodeAt(0), 0);
-  return SUBJECT_COLORS[hash % SUBJECT_COLORS.length];
-}
-
 async function resolveSubjectId(
   supabase: SupabaseClient,
   userId: string,
@@ -148,7 +143,7 @@ async function resolveSubjectId(
 
   const { data: created } = await supabase
     .from("subjects")
-    .insert({ user_id: userId, name, color: subjectColor(name) })
+    .insert({ user_id: userId, name, color: await nextSubjectColor(supabase, userId) })
     .select("id")
     .maybeSingle();
   if (created?.id) return String(created.id);

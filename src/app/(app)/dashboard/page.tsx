@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { subjectColorByIndex } from "@/lib/subject-color-palette";
 import type { Subject } from "@/lib/types";
 
 type ReviewLogWithSubject = {
@@ -82,7 +83,7 @@ export default async function DashboardPage() {
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-neutral-500">과목별 정답률</h2>
         <div className="space-y-2">
-          {(subjects as Subject[] | null)?.map((subject) => {
+          {(subjects as Subject[] | null)?.map((subject, subjectIndex) => {
             const entry = stats.get(subject.id);
             const rate = entry && entry.total > 0 ? Math.round((entry.correct / entry.total) * 100) : null;
             return (
@@ -91,7 +92,10 @@ export default async function DashboardPage() {
                 className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-neutral-200 px-4 py-3 dark:border-neutral-800"
               >
                 <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: subject.color }} />
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: subjectColorByIndex(subjectIndex) }}
+                  />
                   <span className="truncate">{subject.name}</span>
                 </span>
                 <div className="flex items-center gap-3">
