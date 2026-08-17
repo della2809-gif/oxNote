@@ -51,8 +51,6 @@ export async function updateSession(request: NextRequest) {
     return redirectResponse;
   }
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/signup");
   const isProtectedRoute =
     request.nextUrl.pathname.startsWith("/dashboard") ||
     request.nextUrl.pathname.startsWith("/notes") ||
@@ -66,16 +64,6 @@ export async function updateSession(request: NextRequest) {
     url.pathname = "/login";
     url.search = "";
     url.searchParams.set("next", next);
-    return redirectWithRefreshedCookies(url);
-  }
-
-  if (isAuthenticated && isAuthRoute) {
-    const requestedNext = request.nextUrl.searchParams.get("next");
-    const next =
-      requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
-        ? requestedNext
-        : "/dashboard";
-    const url = new URL(next, request.url);
     return redirectWithRefreshedCookies(url);
   }
 
