@@ -33,6 +33,30 @@ function toLatexToken(value: string) {
   return unwrapped.replace(/(\d*)√(\d+|[A-Za-z])/g, (_match, coefficient: string, radicand: string) => `${coefficient}\\sqrt{${radicand}}`);
 }
 
+function renderCircledNumbers(text: string, keyPrefix: string): ReactNode[] {
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+
+  for (const match of text.matchAll(/[①-⑳]/g)) {
+    const index = match.index ?? 0;
+    if (index > cursor) parts.push(text.slice(cursor, index));
+    const number = (match[0].codePointAt(0) ?? 0x2460) - 0x2460 + 1;
+    parts.push(
+      <span
+        key={`${keyPrefix}-choice-${index}`}
+        aria-label={`${number}번`}
+        className="mx-0.5 inline-grid size-[1.5em] shrink-0 place-items-center rounded-full border-[1.5px] border-current text-[0.78em] font-extrabold leading-none align-[-0.16em]"
+      >
+        {number}
+      </span>,
+    );
+    cursor = index + match[0].length;
+  }
+
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return parts.length ? parts : [text];
+}
+
 function renderPlainText(text: string, keyPrefix: string): ReactNode[] {
   const parts: ReactNode[] = [];
   let cursor = 0;
@@ -42,7 +66,7 @@ function renderPlainText(text: string, keyPrefix: string): ReactNode[] {
     const previousCharacter = text[index - 1] ?? "";
     const nextCharacter = text[index + match[0].length] ?? "";
     if (previousCharacter === "/" || nextCharacter === "/") continue;
-    if (index > cursor) parts.push(text.slice(cursor, index));
+    if (index > cursor) parts.push(...renderCircledNumbers(text.slice(cursor, index), `${keyPrefix}-${cursor}`));
 
     const [, whole, numerator, denominator] = match;
     const latex = `${whole ?? ""}\\frac{${toLatexToken(numerator)}}{${toLatexToken(denominator)}}`;
@@ -50,8 +74,8 @@ function renderPlainText(text: string, keyPrefix: string): ReactNode[] {
     cursor = index + match[0].length;
   }
 
-  if (cursor < text.length) parts.push(text.slice(cursor));
-  return parts.length ? parts : [text];
+  if (cursor < text.length) parts.push(...renderCircledNumbers(text.slice(cursor), `${keyPrefix}-${cursor}`));
+  return parts.length ? parts : renderCircledNumbers(text, keyPrefix);
 }
 
 function unwrapDelimitedMath(value: string) {
